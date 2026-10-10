@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+RectAreaLightUniformsLib.init();
 import { WORKS } from './works.js';
 import { T, WALL_H, DOOR_H, ROOMS, WALLS, WINDOWS, DOORWAYS } from './layout.js';
 import { makeLabelMesh, makeTextPlane } from './labels.js';
@@ -24,6 +26,18 @@ function softNoiseCanvas(base, blotch, size = 512) {
     grad.addColorStop(0, `rgba(0,0,0,${a})`); grad.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grad; g.fillRect(0, 0, size, size);
   }
+  return c;
+}
+// sehr feiner vertikaler Helligkeitsverlauf für Wände (Lichtabfall, kein Rauschen)
+function wallGradientCanvas() {
+  const w = 8, h = 512, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, h); // 0 = oben
+  grad.addColorStop(0.00, '#eeeae3');  // oben leicht gedämpft
+  grad.addColorStop(0.30, '#ffffff');  // Lichtzone
+  grad.addColorStop(0.62, '#fbf8f2');
+  grad.addColorStop(1.00, '#e7e3db');  // unten (Boden) gedämpft
+  g.fillStyle = grad; g.fillRect(0, 0, w, h);
   return c;
 }
 function canvasTex(canvas, rx, ry, aniso, srgb = true) {
@@ -58,7 +72,9 @@ export function buildGallery(renderer, quality) {
   const fill = new THREE.AmbientLight(0xffffff, 0.12); scene.add(fill);
 
   // ---------------- Materialien ----------------
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xf3efe8, roughness: 0.95, metalness: 0, envMapIntensity: 0.7 });
+  const wallGrad = new THREE.CanvasTexture(wallGradientCanvas());
+  wallGrad.colorSpace = THREE.SRGBColorSpace; wallGrad.wrapS = wallGrad.wrapT = THREE.ClampToEdgeWrapping;
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xf6f2eb, map: wallGrad, roughness: 0.95, metalness: 0, envMapIntensity: 0.6 });
   const ceilMat = new THREE.MeshStandardMaterial({ color: 0xecebe6, roughness: 0.96, metalness: 0, envMapIntensity: 0.5 });
   const floorCanvas = softNoiseCanvas('#bdbab4', 10);
   const floorMap = canvasTex(floorCanvas, 4, 4, aniso);
@@ -112,13 +128,13 @@ export function buildGallery(renderer, quality) {
     const fx0 = -4.6, fx1 = 4.6, fz0 = -8.1, fz1 = 12.35;
     const W = fx1 - fx0, D = fz1 - fz0, cx = (fx0 + fx1) / 2, cz = (fz0 + fz1) / 2;
     const refl = new Reflector(new THREE.PlaneGeometry(W, D), {
-      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0x888880,
+      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0x5f5e59,
     });
     refl.rotation.x = -Math.PI / 2; refl.position.set(cx, 0.004, cz); root.add(refl);
-    // halbtransparenter Beton darüber -> dämpft die Spiegelung zu „poliert"
+    // halbtransparenter Beton darüber -> dämpft die Spiegelung zu matt-„poliert"
     const overlay = new THREE.Mesh(
       new THREE.PlaneGeometry(W, D),
-      new THREE.MeshStandardMaterial({ color: 0xb9b6b0, map: floorMap, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.62, envMapIntensity: 0.8 })
+      new THREE.MeshStandardMaterial({ color: 0xbfbcb6, map: floorMap, roughness: 0.38, metalness: 0, transparent: true, opacity: 0.76, envMapIntensity: 0.7 })
     );
     overlay.rotation.x = -Math.PI / 2; overlay.position.set(cx, 0.007, cz); overlay.receiveShadow = true; root.add(overlay);
   }
@@ -179,8 +195,11 @@ export function buildGallery(renderer, quality) {
   }
   bench.position.set(-0.5, 0, -4.2); root.add(bench);
 
-  // ---------------- Fenster-Sonne (Saal) + Schatten ----------------
-  const sun = new THREE.DirectionalLight(0xfff3e2, 1.5);
+  // ---------------- Fenster-Tageslicht (Saal): Flächenwäsche + Sonne (Schatten) ----------------
+  const daylight = new THREE.RectAreaLight(0xe2edf6, 3.4, 6.5, 2.3);
+  daylight.position.set(-4.35, 2.05, -4.3); daylight.lookAt(0, 1.6, -4.3); scene.add(daylight);
+
+  const sun = new THREE.DirectionalLight(0xeef2f6, 1.1);
   sun.position.set(-9, 5.5, -4.2); sun.target.position.set(-1, 1.2, -4.5);
   if (quality.shadows) {
     sun.castShadow = true;
@@ -235,11 +254,11 @@ function wallAnchor(r, wk) {
 
 // ---- Strahler auf ein Werk ---------------------------------------------------
 function addWorkSpot(scene, root, fixtureMat, pos, normal, r, workSize, cy, quality) {
-  const out = pos.clone().addScaledVector(normal, 0.85); out.y = r.H - 0.1;
-  // Kegel knapp größer als das Werk
+  const out = pos.clone().addScaledVector(normal, 1.15); out.y = r.H - 0.15;
+  // Kegel knapp größer als das Werk, weicher Rand
   const dist = out.distanceTo(new THREE.Vector3(pos.x, cy, pos.z));
-  const angle = Math.min(0.6, Math.atan((workSize * 0.62 + 0.18) / dist));
-  const spot = new THREE.SpotLight(0xfff0dc, quality.spotIntensity, 0, angle, 0.5, 1.0);
+  const angle = Math.min(0.62, Math.atan((workSize * 0.72 + 0.28) / dist));
+  const spot = new THREE.SpotLight(0xffeedb, quality.spotIntensity, 0, angle, 0.88, 1.25);
   spot.position.copy(out);
   const target = new THREE.Object3D(); target.position.copy(pos); target.position.y = cy;
   scene.add(target); spot.target = target; scene.add(spot);

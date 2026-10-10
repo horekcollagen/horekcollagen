@@ -1,76 +1,69 @@
-# HOREK – Scrap Society · Virtueller Raum
+# HOREK – Scrap Society · Virtueller Rundgang (v2)
 
-Ein fest gehängter, virtueller Ausstellungsraum für die Collagen von HOREK.
-Statische Seite, kein Build-Schritt, keine Tracker, keine externen Requests zur
-Laufzeit. three.js liegt lokal im Repo (Version gepinnt).
+Begehbarer 3D-Rundgang durch drei Räume mit den Collagen von HOREK in
+Originalgröße. three.js, ein schlanker Vite-Build, Veröffentlichung über
+GitHub Actions auf GitHub Pages. Keine Tracker, keine Fonts von außen, keine
+externen Requests zur Laufzeit (die Umgebungsbeleuchtung ist reiner Code).
 
 Live: https://galerie.horekcollagen.de
 
 ## Aufbau
 
 ```
-index.html                 Die komplette Anwendung (Raum, Steuerung, Infotafel)
-js/three.module.min.js     three.js r160, lokal gepinnt – nicht ändern
-works/works.js             Die Werkliste (Titel, Maße, Wand)
-works/*.webp               Die Werkfotos
-CNAME                      galerie.horekcollagen.de
-.nojekyll                  Schaltet die GitHub-Jekyll-Verarbeitung ab
+index.html                 Startschirm + UI-Hülle (lädt src/main.js)
+src/works.js               Die Werkliste (hier tauschen/ergänzen)
+src/layout.js              Raum- und Wandmaße, Durchgänge, Fenster
+src/scene.js               Räume, Material, Licht, Werke, Schilder, Möbel
+src/controls-core.js       Steuerungs-Mathematik (rein, getestet)
+src/controls.js            Eingaben, Kollision, Fokus, Raumsprung
+src/ui.js                  DOM-Logik (Infotafel, Raumleiste, Laden)
+src/test/controls.test.js  Automatischer Steuerungstest (npm test)
+public/works/*.webp        Die Werkfotos (werden 1:1 ausgeliefert)
+public/CNAME               galerie.horekcollagen.de
+.github/workflows/deploy.yml  Build + Deploy bei Push auf main
 ```
 
-## Ein Werk austauschen
+## Ein Werk austauschen  (Foto + eine Zeile)
 
-1. Neues Foto als **WebP** speichern, lange Kante **max. 2048 px**. Nur das Werk,
-   randlos, ohne Hintergrund (sonst stimmen die Proportionen an der Wand nicht).
-2. Datei nach `works/` legen, Name = `slug` aus `works/works.js`
-   (z. B. `works/dope.webp`).
-3. In `works/works.js` beim selben Eintrag `h` (Höhe) und `b` (Breite) des
-   **Originals in Millimetern** eintragen, falls sie sich ändern.
+1. Neues Foto als **WebP**, lange Kante **max. 2048 px**, nur das Werk, randlos
+   (sonst stimmen die Proportionen an der Wand nicht). Nach `public/works/`
+   legen, Name = `slug` aus `src/works.js` (z. B. `public/works/dope.webp`).
+2. In `src/works.js` beim selben Eintrag `h`/`b` (Original in Millimetern)
+   anpassen, falls sich das Maß ändert.
 
-Mehr ist nicht nötig. Das Bild wird in Originalgröße an die Wand gehängt, nichts
-wird skaliert.
-
-> Faustregel: Das Seitenverhältnis des Fotos (Pixel-Breite : Pixel-Höhe) sollte
-> zum Verhältnis `b : h` des Werks passen (Abweichung unter ca. 5 %). Weicht es
-> stärker ab, ist das Foto beschnitten oder hat Hintergrund – dann wirkt das Werk
-> an der Wand verzerrt.
+> Faustregel: Pixel-Verhältnis des Fotos (Breite : Höhe) ≈ `b : h` des Werks
+> (Abweichung unter ca. 5 %). Sonst ist das Foto beschnitten/mit Hintergrund.
 
 ## Ein Werk hinzufügen
 
-In `works/works.js` einen Eintrag ergänzen:
+In `src/works.js` eine Zeile ergänzen:
 
 ```js
-{
-  slug: 'neuer-slug',        // = Dateiname in /works ohne .webp
-  title: 'Werktitel',        // genau so steht er in der Infotafel
-  h: 300, b: 210,            // Höhe x Breite des Originals in Millimetern
-  wall: 'stirn',             // 'stirn' | 'links' | 'rechts' | 'eingang'
-  along: 0,                  // Position längs der Wand in Metern (0 = Mitte)
-  // approx: false,          // optional: exaktes Maß ohne „ca." (Standard: mit „ca.")
-}
+{ slug: 'neuer-slug', title: 'Werktitel', h: 300, b: 210,
+  room: 2, wall: 'links', along: 0.0 }
+//  room: 1 Kabinett · 2 Mittelraum · 3 Saal
+//  wall: 'links' | 'rechts' | 'stirn' (gegenüber Eingang) | 'rueck'
+//  along: Position längs der Wand in Metern (0 = Mitte)
+//  cy: optional Bildmitte (Standard 1,50) · approx: false = exaktes Maß ohne „ca."
 ```
 
-- `wall` wählt die Wand. `stirn` ist die Wand gegenüber dem Eingang.
-- `along` verschiebt das Werk seitlich: auf `stirn`/`eingang` nach rechts,
-  auf `links`/`rechts` Richtung Stirnwand. Werte z. B. `-1.7`, `0`, `1.7`.
-- Die Bildmitte hängt immer auf 1,50 m, die Spots richten sich automatisch aus.
-
-Wird es auf einer Wand zu eng, die `along`-Werte der Nachbarn anpassen oder das
-Werk auf eine andere Wand legen.
-
-## Lokal ansehen
-
-ES-Module brauchen einen kleinen Webserver (Doppelklick auf die Datei reicht
-nicht). Im Projektordner:
+## Lokal ansehen / bauen
 
 ```bash
-python3 -m http.server 8099
+npm install
+npm run dev       # Entwicklungsserver (http://localhost:5173)
+npm test          # Steuerungstest (muss grün sein)
+npm run build     # Produktions-Build nach dist/
 ```
 
-Dann im Browser `http://localhost:8099/` öffnen.
+## Veröffentlichen
+
+Push auf `main` → GitHub Actions baut und deployt automatisch nach
+galerie.horekcollagen.de. Der Build läuft nur durch, wenn `npm test` grün ist.
+Nichts weiter zu tun. Kosten: 0 €.
 
 ## Hinweise
 
-- **three.js nicht gegen eine CDN-Version tauschen.** Die lokale Datei hält die
-  Seite frei von externen Requests.
-- Gesamtgewicht unter 15 MB halten, Fotos als WebP, lange Kante max. 2048 px.
-- Keine Preise, keine Tracker, keine Fonts von außen.
+- Läuft auf Mittelklasse-Handys: eine Qualitätsstufe schaltet Spiegelung, AO
+  und Schatten automatisch ab. Gesamtgewicht unter 25 MB halten.
+- Keine Preise, keine Tracker, keine externen Fonts/CDNs.

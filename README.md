@@ -45,6 +45,7 @@ In `works/works.js` einen Eintrag ergänzen:
   h: 300, b: 210,            // Höhe x Breite des Originals in Millimetern
   wall: 'stirn',             // 'stirn' | 'links' | 'rechts' | 'eingang'
   along: 0,                  // Position längs der Wand in Metern (0 = Mitte)
+  // approx: false,          // optional: exaktes Maß ohne „ca." (Standard: mit „ca.")
 }
 ```
 

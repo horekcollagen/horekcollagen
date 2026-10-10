@@ -329,7 +329,8 @@ const askBtn = document.getElementById('askBtn');
 function cm(mm) { return (mm / 10).toLocaleString('de-DE'); }
 function openPanel(w) {
   panel.querySelector('.ptitle').textContent = w.title;
-  panel.querySelector('.pdim').textContent = 'ca. ' + cm(w.h) + ' × ' + cm(w.b) + ' cm';
+  const prefix = (w.approx === false) ? '' : 'ca. ';
+  panel.querySelector('.pdim').textContent = prefix + cm(w.h) + ' × ' + cm(w.b) + ' cm';
   askBtn.href = 'mailto:kontakt@horekcollagen.de?subject=' + encodeURIComponent('Anfrage: ' + w.title);
   panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
 }

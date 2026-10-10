@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>HOREK – Scrap Society</title>
+<meta name="description" content="Virtueller Raum mit Collagen von HOREK in Originalgröße.">
+<style>
+  :root{
+    --bg:#121110; --ink:#f3efe7; --muted:#b4ac9d; --line:#3a352d;
+    --panel:#17151200;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#121110;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  #app{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* ---- Start-/Ladeschirm ---- */
+  #cover{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:32px 20px;
+    background:radial-gradient(120% 90% at 50% 30%,#1c1a16 0%,#0d0c0b 100%);
+    transition:opacity .8s ease}
+  #cover.hide{opacity:0;pointer-events:none}
+  .brand{font-size:clamp(26px,6vw,46px);font-weight:700;letter-spacing:.01em;margin:0 0 .5em}
+  .lead{max-width:40ch;font-size:clamp(15px,2.4vw,18px);line-height:1.5;color:#e7e1d6;margin:0 auto}
+  .lead .sub{display:block;color:var(--muted);margin-top:.8em;font-size:.95em}
+  #enter{margin-top:30px;padding:14px 30px;font-size:16px;font-weight:600;color:#121110;
+    background:#efe9dd;border:0;border-radius:2px;cursor:pointer;letter-spacing:.02em;
+    transition:transform .15s ease,background .2s ease,opacity .2s}
+  #enter:hover{background:#fff;transform:translateY(-1px)}
+  #enter[disabled]{opacity:.45;cursor:default;transform:none}
+  #bar{margin-top:22px;width:min(240px,60vw);height:2px;background:#36312a;overflow:hidden}
+  #bar>i{display:block;height:100%;width:0;background:#c9bfaa;transition:width .25s ease}
+  #barLbl{margin-top:9px;font-size:12px;color:var(--muted);min-height:1em;letter-spacing:.03em}
+
+  /* ---- Hinweiszeile ---- */
+  #hint{position:fixed;left:50%;bottom:54px;transform:translateX(-50%);z-index:20;
+    background:rgba(16,14,12,.72);color:#e9e3d7;border:1px solid var(--line);
+    padding:8px 14px;border-radius:999px;font-size:13px;letter-spacing:.01em;
+    white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis;
+    opacity:0;pointer-events:none;transition:opacity .6s ease}
+  #hint.show{opacity:1}
+
+  /* ---- Fußzeile ---- */
+  #foot{position:fixed;left:12px;bottom:10px;z-index:20;font-size:12px;color:#9a9284;
+    display:flex;gap:8px;align-items:center;letter-spacing:.02em}
+  #foot a{color:#b9b1a2;text-decoration:none;border-bottom:1px solid transparent}
+  #foot a:hover{color:#efe9dd;border-bottom-color:#6f685c}
+  #foot span{opacity:.5}
+
+  /* ---- Infotafel ---- */
+  #panel{position:fixed;z-index:25;right:0;top:0;height:100%;width:min(360px,86vw);
+    background:rgba(18,16,14,.94);border-left:1px solid var(--line);
+    padding:40px 26px;display:flex;flex-direction:column;gap:14px;
+    transform:translateX(102%);transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  #panel.open{transform:translateX(0)}
+  #panel .ptitle{font-size:22px;font-weight:700;line-height:1.25;margin:0}
+  #panel .pmeta{color:var(--muted);font-size:15px}
+  #panel .pdim{font-size:16px;color:#e7e1d6;border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);padding:12px 0;letter-spacing:.02em}
+  #panel .pbtns{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+  #panel .btn{display:block;text-align:center;padding:13px 16px;border-radius:2px;
+    font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid var(--line)}
+  #panel .ask{background:#efe9dd;color:#121110;border-color:#efe9dd}
+  #panel .ask:hover{background:#fff}
+  #panel .back{background:transparent;color:#e7e1d6}
+  #panel .back:hover{background:#221f1a}
+  @media (max-width:560px){
+    #panel{width:100%;border-left:0;padding:28px 20px calc(20px + env(safe-area-inset-bottom))}
+    #hint{bottom:46px;white-space:normal;text-align:center;font-size:12px;
+      max-width:90vw;line-height:1.35;border-radius:14px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Infotafel -->
+<aside id="panel" aria-hidden="true">
+  <h2 class="ptitle"></h2>
+  <div class="pmeta">Collage auf Holz, Unikat</div>
+  <div class="pdim"></div>
+  <div class="pbtns">
+    <a class="btn ask" id="askBtn" href="#">Anfragen</a>
+    <button class="btn back" id="backBtn" type="button">Zurück in den Raum</button>
+  </div>
+</aside>
+
+<!-- Hinweiszeile -->
+<div id="hint"></div>
+
+<!-- Fußzeile -->
+<footer id="foot">
+  <a href="https://horekcollagen.de" target="_blank" rel="noopener">horekcollagen.de</a><span>·</span>
+  <a href="https://horekcollagen.de/impressum" target="_blank" rel="noopener">Impressum</a><span>·</span>
+  <a href="https://horekcollagen.de/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
+</footer>
+
+<!-- Start-/Ladeschirm -->
+<div id="cover">
+  <h1 class="brand">HOREK – Scrap Society</h1>
+  <p class="lead">
+    Ein Raum. <span id="countTxt">…</span> Collagen in Originalgröße.
+    <span class="sub">Das Foto zeigt die Oberfläche. Papier, Schichten und Holz entfalten ihre Wirkung im Original.</span>
+  </p>
+  <button id="enter" disabled>Raum betreten</button>
+  <div id="bar"><i></i></div>
+  <div id="barLbl">Raum wird geladen …</div>
+</div>
+
+<script type="module">
+import * as THREE from './js/three.module.min.js';
+import { WORKS } from './works/works.js';
+
+/* ------------------------------------------------------------------ Konstanten */
+const ROOM = { w: 7, d: 9, h: 3.2 };     // Breite (x), Tiefe (z), Höhe (y)
+const HW = ROOM.w / 2, HD = ROOM.d / 2;
+const EYE = 1.6;                          // Augenhöhe
+const CENTER_Y = 1.5;                     // Bildmitte
+const EDGE = 0.02;                        // Tafeltiefe 20 mm
+const WALL_OFF = 0.03;                    // Abstand Tafelfront zur Wand
+const BOUND_M = 0.55;                     // Mindestabstand zu Wänden
+
+const app = document.getElementById('app');
+
+/* ------------------------------------------------------------------ Renderer */
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x121110);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 100);
+camera.rotation.order = 'YXZ';
+camera.position.set(0, EYE, HD - 1.2);
+
+/* ------------------------------------------------------------------ Licht */
+scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+scene.add(new THREE.HemisphereLight(0xfbf6ec, 0x4a4742, 0.6));
+
+/* ------------------------------------------------------------------ Texturen (prozedural, keine Dateien) */
+function noiseCanvas(base, varc, blotches, size = 512) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = base; g.fillRect(0, 0, size, size);
+  // sehr weiche, kaum sichtbare Verfärbungen (keine Ringe)
+  for (let i = 0; i < blotches; i++) {
+    const x = Math.random() * size, y = Math.random() * size, r = 60 + Math.random() * 150;
+    const grad = g.createRadialGradient(x, y, 0, x, y, r);
+    const a = 0.010 + Math.random() * 0.016;
+    grad.addColorStop(0, `rgba(0,0,0,${a})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, size, size);
+  }
+  // feines Korn (Rauheit)
+  const img = g.getImageData(0, 0, size, size), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * varc;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+function tex(canvas, rx, ry) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx, ry);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const wallCanvas  = noiseCanvas('#ece7dd', 22, 12);
+const floorCanvas = noiseCanvas('#8a877f', 30, 18);
+const ceilCanvas  = noiseCanvas('#272522', 16, 10);
+
+/* ------------------------------------------------------------------ Raum */
+function wall(w, h, canvas, bump) {
+  const m = new THREE.MeshStandardMaterial({
+    map: tex(canvas, w / 3.4, h / 3.4), roughness: 1, metalness: 0,
+  });
+  m.bumpMap = tex(canvas, w / 3.4, h / 3.4); m.bumpScale = bump;
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+}
+// Boden
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(ROOM.w, ROOM.d),
+  (() => { const m = new THREE.MeshStandardMaterial({ map: tex(floorCanvas, ROOM.w / 2.4, ROOM.d / 2.4), roughness: .97, metalness: 0 }); m.bumpMap = tex(floorCanvas, ROOM.w / 2.4, ROOM.d / 2.4); m.bumpScale = .01; return m; })()
+);
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+// Decke
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d),
+  new THREE.MeshStandardMaterial({ map: tex(ceilCanvas, ROOM.w / 3, ROOM.d / 3), roughness: 1, metalness: 0 }));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = ROOM.h; scene.add(ceil);
+// Wände
+const wStirn = wall(ROOM.w, ROOM.h, wallCanvas, .004); wStirn.position.set(0, ROOM.h / 2, -HD); scene.add(wStirn);
+const wEin = wall(ROOM.w, ROOM.h, wallCanvas, .004); wEin.rotation.y = Math.PI; wEin.position.set(0, ROOM.h / 2, HD); scene.add(wEin);
+const wL = wall(ROOM.d, ROOM.h, wallCanvas, .004); wL.rotation.y = Math.PI / 2; wL.position.set(-HW, ROOM.h / 2, 0); scene.add(wL);
+const wR = wall(ROOM.d, ROOM.h, wallCanvas, .004); wR.rotation.y = -Math.PI / 2; wR.position.set(HW, ROOM.h / 2, 0); scene.add(wR);
+
+/* ------------------------------------------------------------------ Tür (Maßstab 2,00 m) + Bank */
+const doorFrame = new THREE.Mesh(new THREE.PlaneGeometry(1.14, 2.14),
+  new THREE.MeshStandardMaterial({ color: 0x35302a, roughness: 1 }));
+doorFrame.rotation.y = Math.PI; doorFrame.position.set(-1.2, 1.07, HD - 0.01); scene.add(doorFrame);
+const door = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.0),
+  new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: 1 }));
+door.rotation.y = Math.PI; door.position.set(-1.2, 1.0, HD - 0.015); scene.add(door);
+
+const bench = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.42, 0.42),
+  new THREE.MeshStandardMaterial({ color: 0x6d6a63, roughness: .95, metalness: 0 }));
+bench.position.set(0, 0.21, 1.7); scene.add(bench);
+
+/* ------------------------------------------------------------------ Werke */
+const loadMgr = new THREE.LoadingManager();
+const texLoader = new THREE.TextureLoader(loadMgr);
+const woodMat = () => new THREE.MeshStandardMaterial({ color: 0x5a4a34, roughness: .85, metalness: 0 });
+const workMeshes = [];
+
+function placeData(w) {
+  // gibt {pos, rotY, normal} je nach Wand zurück
+  const t = WALL_OFF + EDGE / 2;
+  switch (w.wall) {
+    case 'stirn':   return { pos: new THREE.Vector3(w.along, CENTER_Y, -HD + t), rotY: 0,            n: new THREE.Vector3(0, 0, 1) };
+    case 'eingang': return { pos: new THREE.Vector3(w.along, CENTER_Y,  HD - t), rotY: Math.PI,       n: new THREE.Vector3(0, 0, -1) };
+    case 'links':   return { pos: new THREE.Vector3(-HW + t, CENTER_Y,  w.along), rotY: Math.PI / 2,  n: new THREE.Vector3(1, 0, 0) };
+    case 'rechts':  return { pos: new THREE.Vector3( HW - t, CENTER_Y,  w.along), rotY: -Math.PI / 2, n: new THREE.Vector3(-1, 0, 0) };
+  }
+}
+
+WORKS.forEach(w => {
+  const pw = w.b / 1000, ph = w.h / 1000;
+  const geo = new THREE.BoxGeometry(pw, ph, EDGE);
+  const t = texLoader.load('./works/' + w.slug + '.webp', tx => {
+    tx.colorSpace = THREE.SRGBColorSpace;
+    tx.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  });
+  const face = new THREE.MeshStandardMaterial({ map: t, roughness: .72, metalness: 0 });
+  const mats = [woodMat(), woodMat(), woodMat(), woodMat(), face, woodMat()]; // +z (Index 4) = Bild
+  const mesh = new THREE.Mesh(geo, mats);
+  const d = placeData(w);
+  mesh.position.copy(d.pos); mesh.rotation.y = d.rotY;
+  mesh.userData = { work: w, center: d.pos.clone(), normal: d.n };
+  scene.add(mesh); workMeshes.push(mesh);
+
+  // Deckenspot
+  const lp = d.pos.clone().addScaledVector(d.n, 1.15); lp.y = ROOM.h - 0.08;
+  const spot = new THREE.SpotLight(0xfff3e4, 2.1, 0, 0.5, 0.55, 0);
+  spot.position.copy(lp);
+  spot.target.position.copy(d.pos); scene.add(spot.target); scene.add(spot);
+  // kleines Spot-Gehäuse
+  const fix = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 10),
+    new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: .6, metalness: .3 }));
+  fix.position.copy(lp); scene.add(fix);
+});
+
+/* ------------------------------------------------------------------ Steuerung */
+let started = false;
+let mode = 'free';                 // free | toWork | atWork | toRoom
+let yaw = 0, pitch = 0;             // yaw 0 -> Kamera schaut nach -z, also zur Stirnwand
+const keys = new Set();
+let walkTarget = null;             // {x,z}
+let focus = null;                  // aktives Werk-Mesh
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const tmpV = new THREE.Vector3();
+let anim = null;                   // {fromPos,toPos,look, t, dur, onDone}
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+function setPointer(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+}
+
+// --- Blick ziehen / Tippen unterscheiden
+let dragging = false, lastX = 0, lastY = 0, moved = 0;
+const el = renderer.domElement;
+el.addEventListener('pointerdown', e => {
+  if (!started || mode === 'atWork' || mode === 'toWork' || mode === 'toRoom') return;
+  dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY;
+  el.setPointerCapture(e.pointerId);
+});
+el.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+  yaw -= dx * 0.0026; pitch = clamp(pitch - dy * 0.0026, -0.85, 0.85);
+});
+el.addEventListener('pointerup', e => {
+  if (!dragging) return;
+  dragging = false;
+  try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+  if (moved < 9) { setPointer(e); handleClick(); }   // Tipp
+});
+
+function handleClick() {
+  raycaster.setFromCamera(ndc, camera);
+  const hitW = raycaster.intersectObjects(workMeshes, false);
+  if (hitW.length) { focusWork(hitW[0].object); return; }
+  const hitF = raycaster.intersectObject(floor, false);
+  if (hitF.length) {
+    const p = hitF[0].point;
+    walkTarget = { x: clamp(p.x, -HW + BOUND_M, HW - BOUND_M), z: clamp(p.z, -HD + BOUND_M, HD - BOUND_M) };
+  }
+}
+
+function focusWork(mesh) {
+  const w = mesh.userData.work, c = mesh.userData.center, n = mesh.userData.normal;
+  const pw = w.b / 1000, ph = w.h / 1000;
+  let dist = clamp(Math.max(pw, ph) * 1.35 + 0.55, 0.9, 3.2);
+  const to = c.clone().addScaledVector(n, dist);
+  to.x = clamp(to.x, -HW + BOUND_M, HW - BOUND_M);
+  to.z = clamp(to.z, -HD + BOUND_M, HD - BOUND_M);
+  to.y = CENTER_Y;
+  focus = mesh; walkTarget = null; dragging = false;
+  mode = 'toWork';
+  anim = { fromPos: camera.position.clone(), toPos: to, look: c.clone(), t: 0, dur: 0.75,
+    onDone: () => { mode = 'atWork'; openPanel(w); } };
+}
+
+/* ------------------------------------------------------------------ Infotafel */
+const panel = document.getElementById('panel');
+const askBtn = document.getElementById('askBtn');
+function cm(mm) { return (mm / 10).toLocaleString('de-DE'); }
+function openPanel(w) {
+  panel.querySelector('.ptitle').textContent = w.title;
+  panel.querySelector('.pdim').textContent = 'ca. ' + cm(w.h) + ' × ' + cm(w.b) + ' cm';
+  askBtn.href = 'mailto:kontakt@horekcollagen.de?subject=' + encodeURIComponent('Anfrage: ' + w.title);
+  panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
+}
+document.getElementById('backBtn').addEventListener('click', () => {
+  panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true');
+  // zurück einen Schritt in den Raum
+  const back = camera.position.clone().addScaledVector(focus.userData.normal, 1.3);
+  back.x = clamp(back.x, -HW + BOUND_M, HW - BOUND_M);
+  back.z = clamp(back.z, -HD + BOUND_M, HD - BOUND_M);
+  back.y = EYE;
+  mode = 'toRoom';
+  anim = { fromPos: camera.position.clone(), toPos: back, look: focus.userData.center.clone(), t: 0, dur: 0.6,
+    onDone: () => {
+      const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+      yaw = e.y; pitch = clamp(e.x, -0.85, 0.85); focus = null; mode = 'free';
+    } };
+});
+
+/* ------------------------------------------------------------------ Tastatur */
+addEventListener('keydown', e => {
+  if (!started || mode !== 'free') return;
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  keys.add(k); walkTarget = null;
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+/* ------------------------------------------------------------------ Loop */
+const clock = new THREE.Clock();
+function moveFree(dt) {
+  // Tastatur
+  const sp = 2.6 * dt;
+  let fx = 0, fz = 0;
+  const f = (k) => keys.has(k);
+  if (f('w') || f('arrowup')) fz -= 1;
+  if (f('s') || f('arrowdown')) fz += 1;
+  if (f('a') || f('arrowleft')) fx -= 1;
+  if (f('d') || f('arrowright')) fx += 1;
+  if (fx || fz) {
+    const sin = Math.sin(yaw), cos = Math.cos(yaw);
+    // forward (−z lokal) in Weltkoord.
+    camera.position.x += (fx * cos - fz * sin) * sp;
+    camera.position.z += (fx * sin + fz * cos) * sp;
+  } else if (walkTarget) {
+    const dx = walkTarget.x - camera.position.x, dz = walkTarget.z - camera.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.05) { walkTarget = null; }
+    else { const step = Math.min(sp * 1.15, d); camera.position.x += dx / d * step; camera.position.z += dz / d * step; }
+  }
+  camera.position.x = clamp(camera.position.x, -HW + BOUND_M, HW - BOUND_M);
+  camera.position.z = clamp(camera.position.z, -HD + BOUND_M, HD - BOUND_M);
+  camera.position.y = EYE;
+  camera.rotation.set(pitch, yaw, 0);
+}
+function runAnim(dt) {
+  anim.t += dt / anim.dur;
+  const k = anim.t >= 1 ? 1 : (1 - Math.pow(1 - anim.t, 3)); // easeOutCubic
+  camera.position.lerpVectors(anim.fromPos, anim.toPos, k);
+  camera.lookAt(anim.look);
+  if (anim.t >= 1) { const done = anim.onDone; anim = null; done && done(); }
+}
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (started) {
+    if (mode === 'free') moveFree(dt);
+    else if (mode === 'atWork') camera.lookAt(focus.userData.center);
+    else if (anim) runAnim(dt);
+  }
+  renderer.render(scene, camera);
+}
+loop();
+
+/* ------------------------------------------------------------------ Resize */
+addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+});
+
+/* ------------------------------------------------------------------ Laden & Start */
+const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+document.getElementById('countTxt').textContent = WORKS.length;
+const enter = document.getElementById('enter');
+const barI = document.querySelector('#bar > i');
+const barLbl = document.getElementById('barLbl');
+const hintEl = document.getElementById('hint');
+hintEl.textContent = isTouch
+  ? 'Wischen zum Umsehen · Boden antippen zum Gehen · Bild antippen für Details'
+  : 'Ziehen zum Umsehen · Boden anklicken zum Gehen · Bild anklicken für Details';
+
+loadMgr.onProgress = (url, n, total) => { barI.style.width = Math.round(n / total * 100) + '%'; };
+loadMgr.onLoad = () => { barI.style.width = '100%'; barLbl.textContent = ''; enter.disabled = false; };
+loadMgr.onError = () => { enter.disabled = false; barLbl.textContent = 'Ein Bild fehlt – Raum trotzdem betreten'; };
+// Falls keine Texturen (Cache) – Sicherheitsnetz
+setTimeout(() => { if (enter.disabled) { enter.disabled = false; } }, 8000);
+
+enter.addEventListener('click', () => {
+  if (enter.disabled) return;
+  document.getElementById('cover').classList.add('hide');
+  started = true;
+  hintEl.classList.add('show');
+  setTimeout(() => hintEl.classList.remove('show'), 6500);
+});
+</script>
+</body>
+</html>

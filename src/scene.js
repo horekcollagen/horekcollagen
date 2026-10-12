@@ -8,7 +8,7 @@ import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 RectAreaLightUniformsLib.init();
 import { WORKS } from './works.js';
-import { T, WALL_H, DOOR_H, ROOMS, WALLS, WINDOWS, DOORWAYS } from './layout.js';
+import { T, WALL_H, DOOR_H, ROOMS, WALLS, WINDOWWALLS, DOORWAYS, EMPORE, STAIRS } from './layout.js';
 import { makeLabelMesh, makeTextPlane } from './labels.js';
 
 const PANEL_D = 0.045;      // Tafeltiefe
@@ -68,8 +68,8 @@ export function buildGallery(renderer, quality) {
   scene.environment = envTex;
 
   // Grundlicht: hell, aber mit Raum für Akzente (Pools, Ecken-AO)
-  scene.add(new THREE.HemisphereLight(0xfbf7ef, 0xdad6cd, 0.55));
-  const fill = new THREE.AmbientLight(0xffffff, 0.12); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0xfbf7ef, 0xdad6cd, 0.4));
+  const fill = new THREE.AmbientLight(0xffffff, 0.1); scene.add(fill);
 
   // ---------------- Materialien ----------------
   const wallGrad = new THREE.CanvasTexture(wallGradientCanvas());
@@ -106,8 +106,10 @@ export function buildGallery(renderer, quality) {
     wallBox(w.axis, w.at, dL, dR, DOOR_H, WALL_H);         // Sturz
   }
 
-  // ---------------- Fensterwand (Saal links, x=-4.5) ----------------
-  buildWindowWall(root, wallMat, edgeMat, aniso, scene);
+  // ---------------- Fensterwände (alle Räume) + Tageslicht ----------------
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xcfe0ea, roughness: 0.1, metalness: 0, transparent: true, opacity: 0.16 });
+  const skyMat = new THREE.MeshBasicMaterial({ color: 0xf5f3ec });
+  for (const ww of WINDOWWALLS) buildWindowWall(root, scene, ww, wallMat, edgeMat, glassMat, skyMat);
 
   // ---------------- Böden & Decken je Raum ----------------
   const floors = [];
@@ -122,6 +124,51 @@ export function buildGallery(renderer, quality) {
     // Stromschiene + Strahler-Gehäuse quer über den Raum
     addTrack(root, trackMat, fixtureMat, cx, cz, r);
   }
+
+  // ---------------- Empore (Balkon) + Treppe im Saal ----------------
+  const emporeMat = new THREE.MeshStandardMaterial({ color: 0xb6b3ad, roughness: 0.6, metalness: 0, envMapIntensity: 0.6 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x23211e, roughness: 0.45, metalness: 0.7 });
+  const E = EMPORE;
+  const eW = E.xR - E.xL, eD = E.zBack - E.zFront, eCx = (E.xL + E.xR) / 2, eCz = (E.zFront + E.zBack) / 2;
+  // Plattform
+  const plat = new THREE.Mesh(new THREE.BoxGeometry(eW, E.thickness, eD), emporeMat);
+  plat.position.set(eCx, E.y - E.thickness / 2, eCz); plat.receiveShadow = true; plat.castShadow = true; root.add(plat);
+  // Emporenboden (Klickziel oben)
+  const emporeFloor = new THREE.Mesh(new THREE.BoxGeometry(eW - 0.04, 0.02, eD - 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xbbb8b2, roughness: 0.55, metalness: 0 }));
+  emporeFloor.position.set(eCx, E.y + 0.01, eCz); emporeFloor.userData = { empore: true }; root.add(emporeFloor); floors.push(emporeFloor);
+  // Geländer entlang der offenen Kante (z = zFront)
+  const railY = E.y + 0.55;
+  const topRail = new THREE.Mesh(new THREE.BoxGeometry(eW, 0.05, 0.05), steelMat);
+  topRail.position.set(eCx, railY + 0.5, E.zFront); root.add(topRail);
+  const midRail = new THREE.Mesh(new THREE.BoxGeometry(eW, 0.03, 0.03), steelMat);
+  midRail.position.set(eCx, railY + 0.22, E.zFront); root.add(midRail);
+  for (let x = E.xL + 0.2; x <= E.xR - 0.2; x += 0.9) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.05, 0.04), steelMat);
+    post.position.set(x, E.y + 0.52, E.zFront); root.add(post);
+  }
+  // Treppe (steile Loft-Treppe an der rechten Wand)
+  const st = STAIRS, n = st.steps;
+  const stepW = st.xR - st.xL, run = (st.zTop - st.zBottom), rise = st.yTop;
+  for (let i = 0; i < n; i++) {
+    const h = (rise / n) * (i + 1);
+    const z = st.zBottom + (run / n) * (i + 0.5);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(stepW, 0.06, run / n + 0.02), steelMat);
+    step.position.set((st.xL + st.xR) / 2, h - 0.03, z); step.castShadow = true; step.receiveShadow = true; root.add(step);
+    // Wange darunter
+    const riser = new THREE.Mesh(new THREE.BoxGeometry(stepW, (rise / n), run / n),
+      new THREE.MeshStandardMaterial({ color: 0x2b2926, roughness: 0.6, metalness: 0.3 }));
+    riser.position.set((st.xL + st.xR) / 2, h - (rise / n) / 2, z); root.add(riser);
+  }
+  // Handlauf
+  const hr = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, Math.hypot(run, rise)), steelMat);
+  hr.position.set(st.xL + 0.08, rise / 2 + 0.95, (st.zBottom + st.zTop) / 2);
+  hr.rotation.x = Math.atan2(rise, run); root.add(hr);
+  // Klickziel Treppe (unsichtbar)
+  const stairTarget = new THREE.Mesh(new THREE.BoxGeometry(stepW, rise, Math.hypot(run, rise)),
+    new THREE.MeshBasicMaterial({ visible: false }));
+  stairTarget.position.set((st.xL + st.xR) / 2, rise / 2, (st.zBottom + st.zTop) / 2);
+  stairTarget.rotation.x = Math.atan2(rise, run); stairTarget.userData = { stairs: true }; root.add(stairTarget);
 
   // ---------------- Polierter Betonboden mit weicher Spiegelung ----------------
   if (quality.reflectiveFloor) {
@@ -195,24 +242,21 @@ export function buildGallery(renderer, quality) {
   }
   bench.position.set(-0.5, 0, -4.2); root.add(bench);
 
-  // ---------------- Fenster-Tageslicht (Saal): Flächenwäsche + Sonne (Schatten) ----------------
-  const daylight = new THREE.RectAreaLight(0xe2edf6, 3.4, 6.5, 2.3);
-  daylight.position.set(-4.35, 2.05, -4.3); daylight.lookAt(0, 1.6, -4.3); scene.add(daylight);
-
-  const sun = new THREE.DirectionalLight(0xeef2f6, 1.1);
-  sun.position.set(-9, 5.5, -4.2); sun.target.position.set(-1, 1.2, -4.5);
+  // ---------------- Sonne (Schlagschatten im Saal) ----------------
+  const sun = new THREE.DirectionalLight(0xeef2f6, 1.0);
+  sun.position.set(-9, 7.5, -4.2); sun.target.position.set(-1, 1.2, -4.5);
   if (quality.shadows) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadowMap, quality.shadowMap);
-    sun.shadow.camera.near = 1; sun.shadow.camera.far = 22;
-    sun.shadow.camera.left = -7; sun.shadow.camera.right = 7;
-    sun.shadow.camera.top = 6; sun.shadow.camera.bottom = -2;
+    sun.shadow.camera.near = 1; sun.shadow.camera.far = 24;
+    sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
+    sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -2;
     sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
   }
   scene.add(sun); scene.add(sun.target);
 
   // ---------------- Beschriftung: Eingangstext + Raumnummern ----------------
-  const entrance = makeTextPlane('HOREK – Scrap Society', { size: 0.17, w: 2.1, color: '#1a1714', weight: 700 });
+  const entrance = makeTextPlane('HOREK – Collagen auf Holz. Berlin.', { size: 0.12, w: 2.4, color: '#1a1714', weight: 600 });
   entrance.position.set(0, 2.25, 12.25 - T / 2 - 0.01); entrance.rotation.y = Math.PI; root.add(entrance);
   addRoomNumber(root, '1', 0.0, 6.0 + 0.2, true);
   addRoomNumber(root, '2', 1.6, 0.0 + 0.2, true);
@@ -230,14 +274,15 @@ export function buildGallery(renderer, quality) {
     root.add(trg); doorTriggers.push(trg);
   }
 
-  // Raum-Startpunkte (zum Springen und Durchgehen)
+  // Raum-Startpunkte (zum Springen und Durchgehen) · level 0 = unten, 1 = Empore
   const entries = {
-    1: { x: 0.0, z: 10.6, yaw: 0 },
-    2: { x: 0.0, z: 4.6, yaw: 0 },
-    3: { x: 0.6, z: -1.6, yaw: 0 },
+    1: { x: 0.0, z: 10.6, yaw: 0, level: 0 },
+    2: { x: 0.0, z: 4.6, yaw: 0, level: 0 },
+    3: { x: 0.8, z: -3.2, yaw: 0, level: 0 },
+    empore: { x: 0.0, z: -1.2, yaw: 0, level: 1 },
   };
 
-  return { scene, envTex, pmrem, worksMeshes, raycastTargets, loadMgr, floorMat, sun, floors, doorTriggers, entries };
+  return { scene, envTex, pmrem, worksMeshes, raycastTargets, loadMgr, floorMat, sun, floors, doorTriggers, entries, emporeFloor, stairTarget };
 }
 
 // ---- Wand-Anker für ein Werk (Position, Normale, Rotation) -------------------
@@ -254,17 +299,17 @@ function wallAnchor(r, wk) {
 
 // ---- Strahler auf ein Werk ---------------------------------------------------
 function addWorkSpot(scene, root, fixtureMat, pos, normal, r, workSize, cy, quality) {
-  const out = pos.clone().addScaledVector(normal, 1.15); out.y = r.H - 0.15;
-  // Kegel knapp größer als das Werk, weicher Rand
+  const out = pos.clone().addScaledVector(normal, 1.15);
+  out.y = Math.min(r.H - 0.15, cy + 2.8);   // bei hoher Decke nicht von ganz oben
   const dist = out.distanceTo(new THREE.Vector3(pos.x, cy, pos.z));
   const angle = Math.min(0.62, Math.atan((workSize * 0.72 + 0.28) / dist));
-  const spot = new THREE.SpotLight(0xffeedb, quality.spotIntensity, 0, angle, 0.88, 1.25);
+  const spot = new THREE.SpotLight(0xffeedb, quality.spotIntensity, 0, angle, 0.86, 1.0);
   spot.position.copy(out);
   const target = new THREE.Object3D(); target.position.copy(pos); target.position.y = cy;
   scene.add(target); spot.target = target; scene.add(spot);
-  // Gehäuse an der Schiene
+  // Gehäuse am Strahler
   const fix = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.16, 12), fixtureMat);
-  fix.position.copy(out); fix.position.y = r.H - 0.06; fix.lookAt(pos.x, cy, pos.z); fix.rotateX(Math.PI / 2);
+  fix.position.copy(out); fix.position.y += 0.08; fix.lookAt(pos.x, cy, pos.z); fix.rotateX(Math.PI / 2);
   root.add(fix);
 }
 
@@ -281,50 +326,53 @@ function addRoomNumber(root, num, x, z, faceNeg) {
 }
 
 // ---- Sprossenfensterwand (Saal links) ---------------------------------------
-function buildWindowWall(root, wallMat, edgeMat, aniso, scene) {
-  const { x, sill, head, zCenters, width, cols, rows } = WINDOWS;
-  const zTop = 0.0, zBot = -8.0;
-  // untere Brüstung (voll) und oberer Sturz (voll)
-  const full = (y0, y1) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(T, y1 - y0, zTop - zBot), wallMat);
-    m.position.set(x, (y0 + y1) / 2, (zTop + zBot) / 2); m.receiveShadow = true; root.add(m);
+// Generische Sprossenfensterwand (beide Achsen). ww siehe layout.WINDOWWALLS.
+function buildWindowWall(root, scene, ww, wallMat, edgeMat, glassMat, skyMat) {
+  const { axis, at, from, to, face, sill, head, centers, width, cols, rows } = ww;
+  // solider Wandkasten über u-Bereich [u0,u1], y [y0,y1]
+  const box = (u0, u1, y0, y1, mat, thick = T, d = 0) => {
+    const ul = u1 - u0; if (ul <= 0.001) return;
+    const geo = axis === 'z' ? new THREE.BoxGeometry(thick, y1 - y0, ul) : new THREE.BoxGeometry(ul, y1 - y0, thick);
+    const m = new THREE.Mesh(geo, mat);
+    const uc = (u0 + u1) / 2, yc = (y0 + y1) / 2;
+    if (axis === 'z') m.position.set(at + face * d, yc, uc); else m.position.set(uc, yc, at + face * d);
+    m.receiveShadow = true; root.add(m); return m;
   };
-  full(0, sill); full(head, WALL_H);
-  // Pfeiler zwischen/neben den Fenstern (Bereich sill..head)
-  const openings = zCenters.map(zc => [zc - width / 2, zc + width / 2]).sort((a, b) => a[0] - b[0]);
-  let cursor = zBot;
-  const piers = [];
-  for (const [a, b] of openings) { piers.push([cursor, a]); cursor = b; }
-  piers.push([cursor, zTop]);
-  for (const [a, b] of piers) {
-    if (b - a < 0.001) continue;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(T, head - sill, b - a), wallMat);
-    m.position.set(x, (sill + head) / 2, (a + b) / 2); m.receiveShadow = true; root.add(m);
+  // flaches Element (Glas/Himmel/Sprosse) an u-Position c, y-Mitte yc, Abstand d
+  const place = (mesh, c, yc, d = 0) => {
+    if (axis === 'z') { mesh.rotation.y = face > 0 ? Math.PI / 2 : -Math.PI / 2; mesh.position.set(at + face * d, yc, c); }
+    else { mesh.rotation.y = face > 0 ? 0 : Math.PI; mesh.position.set(c, yc, at + face * d); }
+    root.add(mesh);
+  };
+  const bar = (uc, ul, yc, yl) => {
+    const geo = axis === 'z' ? new THREE.BoxGeometry(0.06, yl, ul) : new THREE.BoxGeometry(ul, yl, 0.06);
+    const m = new THREE.Mesh(geo, edgeMat);
+    if (axis === 'z') m.position.set(at, yc, uc); else m.position.set(uc, yc, at);
+    root.add(m);
+  };
+
+  box(from, to, 0, sill, wallMat);          // Brüstung
+  box(from, to, head, WALL_H, wallMat);     // Sturz
+  const openings = centers.map(c => [c - width / 2, c + width / 2]).sort((a, b) => a[0] - b[0]);
+  let cur = from;
+  for (const [a, b] of openings) { box(cur, a, sill, head, wallMat); cur = b; }
+  box(cur, to, sill, head, wallMat);
+
+  const H = head - sill, yC = (sill + head) / 2;
+  for (const c of centers) {
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(width, H), glassMat); place(glass, c, yC, 0);
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.98, H - 0.02), skyMat); place(sky, c, yC, -0.14);
+    for (let k = 1; k < cols; k++) bar(c - width / 2 + (width * k) / cols, 0.03, yC, H);     // vertikal
+    for (let k = 1; k < rows; k++) bar(c, width, sill + (H * k) / rows, 0.03);                // horizontal
+    bar(c - width / 2, 0.06, yC, H + 0.06); bar(c + width / 2, 0.06, yC, H + 0.06);           // Rahmen seitlich
   }
-  // Glas + Sprossen + helles Tageslicht dahinter
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xcfe0ea, roughness: 0.1, metalness: 0, transparent: true, opacity: 0.18 });
-  const skyMat = new THREE.MeshBasicMaterial({ color: 0xf4f2ea });
-  for (const zc of zCenters) {
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(width, head - sill), glassMat);
-    glass.rotation.y = Math.PI / 2; glass.position.set(x, (sill + head) / 2, zc); root.add(glass);
-    // helle Himmelsfläche knapp hinter dem Fenster
-    const sky = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.98, head - sill - 0.02), skyMat);
-    sky.rotation.y = Math.PI / 2; sky.position.set(x - 0.14, (sill + head) / 2, zc); root.add(sky);
-    // Sprossen
-    const bar = 0.03;
-    for (let c = 1; c < cols; c++) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, head - sill, bar), edgeMat);
-      b.position.set(x, (sill + head) / 2, zc - width / 2 + (width * c) / cols); root.add(b);
-    }
-    for (let ro = 1; ro < rows; ro++) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, bar, width), edgeMat);
-      b.position.set(x, sill + ((head - sill) * ro) / rows, zc); root.add(b);
-    }
-    // Rahmen
-    const frameMat = edgeMat;
-    const fr = new THREE.Mesh(new THREE.BoxGeometry(0.06, head - sill + 0.06, 0.06), frameMat);
-    const fr2 = fr.clone();
-    fr.position.set(x, (sill + head) / 2, zc - width / 2); root.add(fr);
-    fr2.position.set(x, (sill + head) / 2, zc + width / 2); root.add(fr2);
+  // Tageslicht
+  if (!ww.noLight) {
+    const uc = centers.reduce((a, b) => a + b, 0) / centers.length;
+    const w = (Math.max(...centers) - Math.min(...centers)) + width + 0.6;
+    const ral = new THREE.RectAreaLight(0xe6eff7, 1.7, w, H + 0.4);
+    if (axis === 'z') { ral.position.set(at + face * 0.12, yC, uc); ral.lookAt(at + face * 3, yC, uc); }
+    else { ral.position.set(uc, yC, at + face * 0.12); ral.lookAt(uc, yC, at + face * 3); }
+    scene.add(ral);
   }
 }

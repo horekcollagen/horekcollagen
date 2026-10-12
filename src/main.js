@@ -61,11 +61,17 @@ const ui = createUI({
 
 const controls = new Controls(camera, renderer.domElement, gallery, ui);
 
-// ---- Laden ----
+// ---- Laden + Werk-Direktlink (?werk=NR) ----
+const werkParam = parseInt(new URLSearchParams(location.search).get('werk') || '', 10);
+function afterLoad() {
+  ui.ready();
+  if (werkParam) { ui.enterNow(); started = true; controls.jumpToWork(werkParam); }
+}
 gallery.loadMgr.onProgress = (u, n, t) => ui.setProgress(n, t);
-gallery.loadMgr.onLoad = () => ui.ready();
+gallery.loadMgr.onLoad = afterLoad;
 gallery.loadMgr.onError = () => ui.fail('Ein Bild fehlt – trotzdem betreten');
-setTimeout(() => ui.ready(), 9000); // Sicherheitsnetz
+setTimeout(() => { if (enter_disabled_still()) afterLoad(); }, 9000); // Sicherheitsnetz
+function enter_disabled_still() { return document.getElementById('enter').disabled; }
 
 // ---- Loop ----
 let started = false;
@@ -86,4 +92,4 @@ addEventListener('resize', () => {
 });
 
 // Debug-Zugriff
-window.__gallery = { renderer, scene, camera, controls, quality };
+window.__gallery = { renderer, scene, camera, controls, quality, composer, THREE };

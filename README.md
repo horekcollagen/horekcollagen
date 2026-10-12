@@ -1,69 +1,81 @@
-# HOREK – Scrap Society · Virtueller Rundgang (v2)
+# HOREK – Virtueller Rundgang (v3)
 
-Begehbarer 3D-Rundgang durch drei Räume mit den Collagen von HOREK in
-Originalgröße. three.js, ein schlanker Vite-Build, Veröffentlichung über
-GitHub Actions auf GitHub Pages. Keine Tracker, keine Fonts von außen, keine
-externen Requests zur Laufzeit (die Umgebungsbeleuchtung ist reiner Code).
+Begehbarer 3D-Rundgang durch drei Räume + Empore mit den Collagen von HOREK in
+Originalgröße. three.js, schlanker Vite-Build, Veröffentlichung über GitHub
+Actions auf GitHub Pages. Keine Tracker, keine Fonts von außen, keine externen
+Requests zur Laufzeit.
 
 Live: https://galerie.horekcollagen.de
 
 ## Aufbau
 
 ```
-index.html                 Startschirm + UI-Hülle (lädt src/main.js)
-src/works.js               Die Werkliste (hier tauschen/ergänzen)
-src/layout.js              Raum- und Wandmaße, Durchgänge, Fenster
-src/scene.js               Räume, Material, Licht, Werke, Schilder, Möbel
+index.html                 Startschirm + UI (lädt src/main.js)
+src/works.js               Werkliste (hier tauschen/ergänzen: Preis, Jahr, Lage)
+src/layout.js              Raum-/Wandmaße, Fenster, Empore, Treppe
+src/scene.js               Räume, Material, Licht, Werke, Schilder, Möbel, Empore
 src/controls-core.js       Steuerungs-Mathematik (rein, getestet)
-src/controls.js            Eingaben, Kollision, Fokus, Raumsprung
-src/ui.js                  DOM-Logik (Infotafel, Raumleiste, Laden)
-src/test/controls.test.js  Automatischer Steuerungstest (npm test)
-public/works/*.webp        Die Werkfotos (werden 1:1 ausgeliefert)
+src/controls.js            Eingaben, Kollision, Fokus, Ebenen (Saal/Empore)
+src/ui.js                  Infotafel (Verkauf), Lupe, Raumleiste, Laden
+src/test/controls.test.js  Steuerungstest (npm test)
+tools/qr.js                QR-Codes + Übersicht erzeugen (npm run qr)
+public/works/*.webp        Werkfotos (3D-Textur, ≤ 2048 px)
+public/works/hires/NR.jpg  optional: hochauflösender Scan für die Lupe
 public/CNAME               galerie.horekcollagen.de
-.github/workflows/deploy.yml  Build + Deploy bei Push auf main
+qr/                        erzeugte QR-Codes (SVG+PNG) + uebersicht.html (Druck)
+startbild/                 Startseiten-Bild (1920×1080, WebP+JPG) für Horizons
 ```
 
 ## Ein Werk austauschen  (Foto + eine Zeile)
 
-1. Neues Foto als **WebP**, lange Kante **max. 2048 px**, nur das Werk, randlos
-   (sonst stimmen die Proportionen an der Wand nicht). Nach `public/works/`
-   legen, Name = `slug` aus `src/works.js` (z. B. `public/works/dope.webp`).
-2. In `src/works.js` beim selben Eintrag `h`/`b` (Original in Millimetern)
-   anpassen, falls sich das Maß ändert.
-
-> Faustregel: Pixel-Verhältnis des Fotos (Breite : Höhe) ≈ `b : h` des Werks
-> (Abweichung unter ca. 5 %). Sonst ist das Foto beschnitten/mit Hintergrund.
+1. Foto als **WebP**, lange Kante **max. 2048 px**, randlos, nach
+   `public/works/` (Name = `slug`). 
+2. In `src/works.js` die Zeile anpassen: `h`/`b` (Maß in mm), `price`, `year`.
 
 ## Ein Werk hinzufügen
 
-In `src/works.js` eine Zeile ergänzen:
+Zeile in `src/works.js` ergänzen:
 
 ```js
-{ slug: 'neuer-slug', title: 'Werktitel', h: 300, b: 210,
-  room: 2, wall: 'links', along: 0.0 }
-//  room: 1 Kabinett · 2 Mittelraum · 3 Saal
-//  wall: 'links' | 'rechts' | 'stirn' (gegenüber Eingang) | 'rueck'
-//  along: Position längs der Wand in Metern (0 = Mitte)
-//  cy: optional Bildmitte (Standard 1,50) · approx: false = exaktes Maß ohne „ca."
+{ nr: 999, slug: 'neuer-slug', title: 'Titel', year: 2025, price: 650,
+  h: 300, b: 210, room: 2, wall: 'links', along: 0.0 }
+//  room 1/2/3 · level 'unten'|'empore' (nur Saal) · wall links|rechts|stirn|rueck
+//  along = Lage längs der Wand (m) · cy = Bildmitte (Std 1,50)
+//  approx:false = exaktes Maß ohne „ca." · text:'…' = Werktext (leer = aus)
 ```
 
-## Lokal ansehen / bauen
+Die Architektur ist auf ~20–25 Werke ausgelegt; nur Zeilen ergänzen.
+
+## Lupe (Zoom) und hochauflösende Scans
+
+In der Infotafel öffnet „Werk vergrößern (Lupe)" das Bild groß (Zoom per
+Mausrad/Pinch, Verschieben per Ziehen). Die Lupe lädt bei Bedarf
+`public/works/hires/<NR>.jpg`, falls vorhanden — **sonst das normale Foto**.
+Besseren Scan später einfach als `public/works/hires/<NR>.jpg` ablegen, fertig.
+Die hires-Dateien werden **nicht** als 3D-Textur geladen (Gewicht).
+
+## Werk-Links und QR-Codes
+
+- Jedes Werk hat eine eigene Adresse: `…/?werk=<NR>` (z. B. `?werk=302`).
+  Aufruf öffnet die Ausstellung direkt vor dem Werk mit offener Infotafel.
+- `npm run qr` erzeugt `qr/<NR>.svg` + `qr/<NR>.png` (druckfähig) und
+  `qr/uebersicht.html` (druckbare Kärtchen: QR, Titel, Maß, Preis) — lokal,
+  ohne Online-Dienst.
+
+## Lokal ansehen / bauen / veröffentlichen
 
 ```bash
 npm install
-npm run dev       # Entwicklungsserver (http://localhost:5173)
+npm run dev       # http://localhost:5173
 npm test          # Steuerungstest (muss grün sein)
 npm run build     # Produktions-Build nach dist/
+npm run qr        # QR-Codes + Übersicht
 ```
 
-## Veröffentlichen
-
-Push auf `main` → GitHub Actions baut und deployt automatisch nach
-galerie.horekcollagen.de. Der Build läuft nur durch, wenn `npm test` grün ist.
-Nichts weiter zu tun. Kosten: 0 €.
+Push auf `main` → GitHub Actions baut (nur wenn `npm test` grün ist) und deployt
+automatisch nach galerie.horekcollagen.de. Kosten: 0 €.
 
 ## Hinweise
 
-- Läuft auf Mittelklasse-Handys: eine Qualitätsstufe schaltet Spiegelung, AO
-  und Schatten automatisch ab. Gesamtgewicht unter 25 MB halten.
-- Keine Preise, keine Tracker, keine externen Fonts/CDNs.
+- Mittelklasse-Handys: eine Qualitätsstufe schaltet Spiegelung/AO/Schatten ab.
+- Gewicht unter 25 MB halten. Keine Preise doppelt pflegen (nur `src/works.js`).

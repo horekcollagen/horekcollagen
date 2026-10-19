@@ -200,6 +200,10 @@ export function buildGallery(renderer, quality, works = []) {
     box(w, 0.3, d, darkWoodMat, cx, EMP.y - 0.15, cz);                    // Tragplatte
     const ef = new THREE.Mesh(new THREE.BoxGeometry(w - 0.05, 0.02, d - 0.05), efMat);
     ef.position.set(cx, EMP.y + 0.01, cz); ef.userData = { empore: true }; root.add(ef); upperFloors.push(ef);
+    // Unterseite: helle Kassettenfelder (wie im Schiff) + dunkle Holzbalken – nie schwarz.
+    box(w, 0.03, d, ceilFieldMat, cx, EMP.y - 0.31, cz);                               // helles Feld
+    for (let z = zF + 1.1; z < zN - 0.3; z += 2.3) box(w, 0.16, 0.16, darkWoodMat, cx, EMP.y - 0.42, z); // Querbalken
+    for (const x of (w > 4 ? [cx - w / 4, cx + w / 4] : [cx])) box(0.16, 0.14, d, darkWoodMat, x, EMP.y - 0.41, cz); // Längsbalken
   };
   // Westempore mit Treppenloch (x 11–13, z 27–31); Seitenemporen voll.
   plate(EMP.west.xL, STAIRS.xL, STAIRS.zTop, EMP.west.zN);     // links vom Loch

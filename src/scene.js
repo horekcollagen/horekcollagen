@@ -142,9 +142,10 @@ export function buildGallery(renderer, quality, works = []) {
     new THREE.SphereGeometry(APSE.r, 48, 24, Math.PI, Math.PI, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0xe7e0d2, roughness: 0.96, side: THREE.DoubleSide }));
   dome.position.set(APSE.cx, DRUM_H, APSE.cz); root.add(dome);
-  // Apsis-Flanken (x4–5 / x15–16, z0–6) schließen die Seiten der Apsisbucht zur geraden Seitenwand.
-  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xL + 0.5, NAVE.H / 2, 2.9);
-  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xR - 0.5, NAVE.H / 2, 2.9);
+  // Apsis-Flanken (x4–5 / x15–16) schließen die Seiten der Apsisbucht; sie STOSSEN an die
+  // Chorwand (Vorderkante z 5,875), überlappen sie also nicht mehr (früher bis z 6,0).
+  box(1.0, NAVE.H, 6.075, wallMat, NAVE.xL + 0.5, NAVE.H / 2, 2.8375);
+  box(1.0, NAVE.H, 6.075, wallMat, NAVE.xR - 0.5, NAVE.H / 2, 2.8375);
   // weiches Apsislicht (Garten Eden bleibt das hellste Werk)
   const apseFill = new THREE.PointLight(0xffe9cf, 8, 14, 1.2); apseFill.position.set(APSE.cx, 4.2, 3.0); scene.add(apseFill);
 
@@ -165,15 +166,19 @@ export function buildGallery(renderer, quality, works = []) {
 
   // ---------------- Vorhalle + Übergangswände + Tür ----------------
   // Übergang Außenwand -> Vorhalle bei z=31 (links x4->7, rechts x16->13)
-  box(VEST.xL - NAVE.xL, NAVE.H, 0.25, wallMat, (NAVE.xL + VEST.xL) / 2, NAVE.H / 2, VEST.zF);
-  box(NAVE.xR - VEST.xR, NAVE.H, 0.25, wallMat, (VEST.xR + NAVE.xR) / 2, NAVE.H / 2, VEST.zF);
+  // Innenkanten 2 cm in die Durchgangsöffnung gezogen (x7->7,02 / x13->12,98): die Emporen-
+  // kanten (x7/x13) liegen dann INNEN hinter der Wand, nicht in einer Ebene mit ihr (kein Flackern).
+  box(VEST.xL - NAVE.xL + 0.02, NAVE.H, 0.25, wallMat, (NAVE.xL + VEST.xL + 0.02) / 2, NAVE.H / 2, VEST.zF);
+  box(NAVE.xR - VEST.xR + 0.02, NAVE.H, 0.25, wallMat, (VEST.xR - 0.02 + NAVE.xR) / 2, NAVE.H / 2, VEST.zF);
   // Rückwand der Westempore über dem Vorhallen-Durchgang (schließt die Leere über der
   // Vorhalle; weiß gekalkt; Serie 2020 hängt hier). Unten (y<5) bleibt der Durchgang frei.
-  box(VEST.xR - VEST.xL, NAVE.H - VEST.H, 0.25, wallMat, 10, VEST.H + (NAVE.H - VEST.H) / 2, VEST.zF);
+  box(VEST.xR - VEST.xL, NAVE.H - VEST.H + 0.2, 0.25, wallMat, 10, VEST.H + (NAVE.H - VEST.H) / 2 - 0.1, VEST.zF);
   // Vorhallenwände
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xL, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xR, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
-  box(VEST.xR - VEST.xL + 0.3, 0.2, VEST.zN - VEST.zF + 0.3, ceilFieldMat, 10, VEST.H, (VEST.zF + VEST.zN) / 2); // Decke Vorhalle (weiß, waagerecht)
+  // Decke Vorhalle (weiß, waagerecht): vorne 10 cm in die Vorhalle (keine Fuge an der z31-Wand),
+  // hinten in die Eingangswand hinein (z36,0, verdeckt) – keine koplanar-gleichen Kanten.
+  box(VEST.xR - VEST.xL + 0.3, 0.2, 4.8, ceilFieldMat, 10, VEST.H, 33.5);
   // Eingangswand z=36 mit Tür
   const dW = VEST.doorW, dH = 2.6;
   box((10 - dW / 2) - VEST.xL, VEST.H, 0.3, wallMat, (VEST.xL + (10 - dW / 2)) / 2, VEST.H / 2, VEST.zN); // links
@@ -205,27 +210,32 @@ export function buildGallery(renderer, quality, works = []) {
   // Scheitel y11.5 = Kuppelrand). Darüber bis zur Decke geschlossen -> vom Schiff ein runder
   // Bogen, darin die Kuppel; nichts ragt durch Wand oder Decke.
   {
-    const chZ = 6.0, archSpring = DRUM_H, archR = APSE.r, cx = APSE.cx;
+    const chZ = 6.0, archSpring = DRUM_H, archR = APSE.r, cx = APSE.cx, aOut = archR + 0.35;
+    const yB = -0.6;                 // Unterkante UNTER dem Boden: keine Fläche in der Bodenebene (y0) -> kein Flackern
+    const yT = NAVE.H + 0.1;         // Oberkante leicht IN die Decke: keine Fläche in der Deckenebene (y12)
+    // Chorwand mit Öffnung = AUSSENkante der Archivolte (aOut). So kacheln Wand und Archivolte
+    // dieselbe Ebene, ohne sich zu überlappen (kein Versatz, kein Schlitz, kein koplanares Flackern).
     const shape = new THREE.Shape();
-    shape.moveTo(NAVE.xL, 0); shape.lineTo(NAVE.xR, 0); shape.lineTo(NAVE.xR, NAVE.H); shape.lineTo(NAVE.xL, NAVE.H);
+    shape.moveTo(NAVE.xL, yB); shape.lineTo(NAVE.xR, yB); shape.lineTo(NAVE.xR, yT); shape.lineTo(NAVE.xL, yT);
     const hole = new THREE.Path();
-    hole.moveTo(cx - archR, 0); hole.lineTo(cx - archR, archSpring);
-    hole.absarc(cx, archSpring, archR, Math.PI, 0, true);          // Halbkreisbogen x5 -> x15 über den Scheitel
-    hole.lineTo(cx + archR, 0); hole.lineTo(cx - archR, 0);
+    hole.moveTo(cx - aOut, yB); hole.lineTo(cx - aOut, archSpring);
+    hole.absarc(cx, archSpring, aOut, Math.PI, 0, true);
+    hole.lineTo(cx + aOut, yB); hole.lineTo(cx - aOut, yB);
     shape.holes.push(hole);
     const chancel = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: false }),
       new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.96, side: THREE.DoubleSide }));
-    chancel.position.set(0, 0, chZ - 0.125); chancel.receiveShadow = true; root.add(chancel);
-    // Backstein-Archivolte macht den runden Bogen sichtbar (wie die Fensterlaibungen)
-    const aOut = archR + 0.35;
+    chancel.position.set(0, 0, chZ - 0.125); chancel.receiveShadow = true; root.add(chancel);   // z 5,875..6,125
+    // Backstein-Archivolte füllt den Ring archR..aOut, BÜNDIG in derselben Wandebene. Sie greift
+    // 2 cm radial in die Wand und steht 1 mm vor/hinter ihr -> keine koplanar-gleiche Kante (kein Flackern).
+    const aO2 = aOut + 0.02, yBa = yB - 0.04;   // Archivolten-Unterkante 4 cm tiefer (unter dem Boden, nicht gleich der Chorwand)
     const ring = new THREE.Shape();
-    ring.moveTo(cx - aOut, 0); ring.lineTo(cx - aOut, archSpring); ring.absarc(cx, archSpring, aOut, Math.PI, 0, true); ring.lineTo(cx + aOut, 0);
+    ring.moveTo(cx - aO2, yBa); ring.lineTo(cx - aO2, archSpring); ring.absarc(cx, archSpring, aO2, Math.PI, 0, true); ring.lineTo(cx + aO2, yBa);
     const rh = new THREE.Path();
-    rh.moveTo(cx - archR, 0); rh.lineTo(cx - archR, archSpring); rh.absarc(cx, archSpring, archR, Math.PI, 0, true); rh.lineTo(cx + archR, 0); rh.lineTo(cx - archR, 0);
+    rh.moveTo(cx - archR, yBa); rh.lineTo(cx - archR, archSpring); rh.absarc(cx, archSpring, archR, Math.PI, 0, true); rh.lineTo(cx + archR, yBa); rh.lineTo(cx - archR, yBa);
     ring.holes.push(rh);
-    const arch = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.22, bevelEnabled: false }),
+    const arch = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.256, bevelEnabled: false }),
       new THREE.MeshStandardMaterial({ color: 0x9a7b5a, map: brickMat.map, roughness: 0.95, side: THREE.DoubleSide }));
-    arch.position.set(0, 0, chZ - 0.125 - 0.22); root.add(arch);
+    arch.position.set(0, 0, chZ - 0.128); root.add(arch);   // z 5,872..6,128: umschließt die Chorwand 3 mm vorn/hinten (keine gemeinsame Kante)
   }
 
   // ---------------- Emporen (U-Form) + Geländer + Stützen + Treppe ----------------
@@ -260,8 +270,11 @@ export function buildGallery(renderer, quality, works = []) {
   // Treppe steigt durch das Treppenloch: Fuß (y0) bei zBottom im Schiff, Kopf (y5) bei zTop auf der Empore.
   const st = STAIRS, n = st.steps, cx = (st.xL + st.xR) / 2, stepW = st.xR - st.xL, run = st.zBottom - st.zTop, rise = st.yTop, sd = run / n;
   for (let i = 0; i < n; i++) { const h = (rise / n) * (i + 1), z = st.zBottom - sd * (i + 0.5);
-    box(stepW, h, sd, darkWoodMat, cx, h / 2, z);                 // Stufenblock/Wange
-    box(stepW + 0.04, 0.1, sd + 0.04, woodMat, cx, h - 0.05, z); }// Trittfläche
+    // Stufenblock reicht UNTER den Boden (keine Fläche in der Bodenebene) und 6 cm in den unteren
+    // Nachbarblock (keine koplanar-gleichen Seitenflächen). Oberkante bei y=h-0,06, liegt INNEN
+    // in der Trittplatte -> keine gemeinsame Deckfläche von Block und Platte (kein Flackern).
+    box(stepW, h + 0.14, sd + 0.06, darkWoodMat, cx, (h - 0.26) / 2, z + 0.03);
+    box(stepW + 0.04, 0.1, sd + 0.04, woodMat, cx, h - 0.05, z); }  // Trittplatte (helle Oberfläche bei y=h)
   // Wange/Brüstung seitlich der Treppe (geschlossen) als Stirnseiten
   const stairTarget = new THREE.Mesh(new THREE.BoxGeometry(stepW, rise, run), new THREE.MeshBasicMaterial({ visible: false }));
   stairTarget.position.set(cx, rise / 2, (st.zTop + st.zBottom) / 2); stairTarget.userData = { stairs: true }; root.add(stairTarget);
@@ -349,7 +362,9 @@ function buildSideWall(root, x, face, wallMat, brickMat, darkWoodMat, scene, qua
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN_W, hh),
       new THREE.MeshStandardMaterial({ map: gtex, emissive: 0xffffff, emissiveMap: gtex, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0, side: THREE.DoubleSide }));
     glass.rotation.y = face > 0 ? Math.PI / 2 : -Math.PI / 2; glass.position.set(x + face * 0.02, (ya + yb) / 2, zc); root.add(glass);
-    for (const dz of [-WIN_W / 2, WIN_W / 2]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, hh, 0.12), brickMat); m.position.set(x, (ya + yb) / 2, zc + dz); root.add(m); }
+    // Laibungspfosten 8 cm höher als die Fensteröffnung -> ihre Ober-/Unterkanten liegen INNEN
+    // in den Wandbändern, nicht in deren Fugen (y1.2/3.6/7.2) -> kein koplanares Flackern.
+    for (const dz of [-WIN_W / 2, WIN_W / 2]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, hh + 0.08, 0.12), brickMat); m.position.set(x, (ya + yb) / 2, zc + dz); root.add(m); }
   }
   // Die Bleiglas-Scheiben leuchten selbst (emissiv); farbige Bodenflecken setzt buildGallery
   // als additive Flächen (keine echten Lichter mehr).

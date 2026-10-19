@@ -9,3 +9,6 @@ tools/*.local.json
 *.local.json
 .DS_Store
 **/.DS_Store
+
+# Lokaler Vorschau-Starter (nicht im Repo)
+*.command

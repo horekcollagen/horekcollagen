@@ -134,6 +134,10 @@ export function buildGallery(renderer, quality, works = []) {
     new THREE.CylinderGeometry(APSE.r, APSE.r, DRUM_H, 40, 1, true, Math.PI / 2, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.96, side: THREE.DoubleSide }));
   apseWall.position.set(APSE.cx, DRUM_H / 2, APSE.cz); apseWall.receiveShadow = true; root.add(apseWall);
+  // Apsis-Flanken: Keil zwischen gerader Seitenwand (x4/x16, beginnt bei z5) und Trommelrand
+  // schließen – sonst sieht man seitlich der Apsis an der Trommel vorbei in die Leere.
+  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xL + 0.5, NAVE.H / 2, 2.9);   // links  (x4–5, z−0.2…6)
+  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xR - 0.5, NAVE.H / 2, 2.9);   // rechts (x15–16)
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(APSE.r, 40, 20, Math.PI / 2, Math.PI, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0xe7e0d2, roughness: 0.96, side: THREE.DoubleSide }));
@@ -172,7 +176,16 @@ export function buildGallery(renderer, quality, works = []) {
   box((10 - dW / 2) - VEST.xL, VEST.H, 0.3, wallMat, (VEST.xL + (10 - dW / 2)) / 2, VEST.H / 2, VEST.zN); // links
   box(VEST.xR - (10 + dW / 2), VEST.H, 0.3, wallMat, ((10 + dW / 2) + VEST.xR) / 2, VEST.H / 2, VEST.zN); // rechts
   box(dW, VEST.H - dH, 0.3, wallMat, 10, dH + (VEST.H - dH) / 2, VEST.zN); // Sturz
-  box(dW, dH, 0.1, new THREE.MeshStandardMaterial({ color: 0x120f0d, roughness: 1 }), 10, dH / 2, VEST.zN - 0.08); // dunkle Tür
+  // geschlossene, zweiflügelige Holztür (kein schwarzes Loch) – wie die Wände beleuchtet
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x7a5a38, roughness: 0.68, metalness: 0 });
+  const doorStile = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.72, metalness: 0 });
+  box(dW + 0.16, dH + 0.12, 0.12, doorStile, 10, (dH + 0.12) / 2, VEST.zN - 0.04);                 // Zarge/Rahmen
+  for (const s of [-1, 1]) { const lx = 10 + s * (dW / 4);
+    box(dW / 2 - 0.04, dH - 0.06, 0.07, doorMat, lx, dH / 2, VEST.zN - 0.10);                       // Türblatt
+    for (const yy of [dH * 0.3, dH * 0.7]) box(dW / 2 - 0.26, dH * 0.24, 0.02, doorStile, lx, yy, VEST.zN - 0.14); // Füllungen
+    box(0.05, 0.05, 0.06, doorStile, lx - s * (dW / 4 - 0.12), dH * 0.46, VEST.zN - 0.16);          // Griff
+  }
+  box(0.07, dH - 0.06, 0.08, doorStile, 10, dH / 2, VEST.zN - 0.11);                                // Mittelstoß
 
   // Eingangstext
   const entrance = makeTextPlane('HOREK – Collagen auf Holz. Berlin.', { size: 0.1, w: 2.6, color: '#2a241c', weight: 600 });
@@ -246,12 +259,8 @@ export function buildGallery(renderer, quality, works = []) {
   box(1.8, 0.08, 0.8, woodMat, 2, 0.9, 16.5); for (const dx of [-0.8, 0.8]) for (const dz of [-0.3, 0.3]) box(0.08, 0.9, 0.08, woodMat, 2 + dx, 0.45, 16.5 + dz);
   box(0.5, 0.3, 0.6, new THREE.MeshStandardMaterial({ color: 0xcfc6b4, roughness: 1 }), 1.5, 1.1, 16.5); // Zeitungsstapel
   box(0.6, 0.02, 0.45, woodMat, 2.5, 0.96, 16.6); // halbfertige Holztafel
-  // Beichtstuhl / Videokabine rechte Kapelle
-  box(1.4, 2.4, 1.2, darkWoodMat, 18, 1.2, 16.5);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), new THREE.MeshBasicMaterial({ color: 0x0b0b0e }));
-  screen.position.set(18 - 0.71, 1.4, 16.5); screen.rotation.y = Math.PI / 2; screen.userData = { video: true }; root.add(screen);
-  // Kiosk Vorhalle links
-  const kiosk = box(2.0, 1.1, 1.0, woodMat, 8.4, 0.55, 32.6); kiosk.userData = { kiosk: true };
+  // (rechte Kapelle: kein hoher Kasten mehr – die Werke sollen frei sichtbar sein)
+  // (Vorhalle: kein Kiosk-Kasten mehr)
 
   // ---------------- Sonne (weiche Schatten) ----------------
   const sun = new THREE.DirectionalLight(0xfff0dc, 0.9); sun.position.set(-6, 14, 20); sun.target.position.set(10, 1, 14);

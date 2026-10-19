@@ -33,8 +33,9 @@ export const CHAPEL_WIN_ZC = [15.2, 17.8];           // Kapellenfenster (2 je Ka
 // Begehbare Flächen Ebene 0 (Rechtecke, bereits von Wänden eingerückt).
 export const GROUND = [
   { xL: 4.4, xR: 15.6, zF: 6.9, zN: 30.6 },    // Schiff
-  { xL: 5.5, xR: 14.5, zF: 1.4, zN: 6.9 },     // Apsis (durch die Öffnung)
+  { xL: 6.5, xR: 13.5, zF: 2.4, zN: 6.9 },     // Apsis (innerhalb der Trommel, nicht in die Ecken)
   { xL: 7.4, xR: 12.6, zF: 31.0, zN: 35.6 },   // Vorhalle
+  { xL: 7.2, xR: 12.8, zF: 30.3, zN: 31.2 },   // Durchgang Vorhalle <-> Schiff (schließt die Lücke z30.6–31)
   { xL: 0.4, xR: 4.6,  zF: 14.4, zN: 18.6 },   // linke Kapelle (+ Öffnung)
   { xL: 15.4, xR: 19.6, zF: 14.4, zN: 18.6 },  // rechte Kapelle (+ Öffnung)
   { xL: 8.6, xR: 11.4, zF: 6.0, zN: 7.0 },     // Durchgang Bildwand

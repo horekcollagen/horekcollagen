@@ -6,7 +6,7 @@
 // ============================================================================
 import { NAVE, APSE, CHAPEL, VEST, EMP, BILDWAND, PODIUM, WIN_ZC } from './layout.js';
 
-const OFF = 0.2;   // > halbe Wandstärke (0,125), sonst steckt das Werk in der Wand
+const OFF = 0.18;  // > halbe Wandstärke (0,125), aber Werkrückseite <=5 cm vor der Wand
 const N = { pX: [1, 0, 0], nX: [-1, 0, 0], pZ: [0, 0, 1], nZ: [0, 0, -1] };
 const rot = { pX: Math.PI / 2, nX: -Math.PI / 2, pZ: 0, nZ: Math.PI };
 
@@ -51,8 +51,9 @@ export function hangAll(RAW) {
   z1rest.forEach((w, i) => { const left = i % 2 === 0; const zz = zs1[Math.floor(i / 2)];
     out.push(mk(w, left ? xL : xR, 1.5, zz, left ? 'pX' : 'nX')); });
 
-  // ---------- Zone 2: Schiff, 6 je Seite zwischen den Fenstern ----------
-  const z2 = byZone(2); const zs2 = [9, 13.5, 15.5, 17.5, 19.5, 22.5];
+  // ---------- Zone 2: Schiff, 6 je Seite auf massiver Wand (nicht in Fenster/Kapellentür) ----------
+  // Fenster bei z≈7.25/10.75/20.75/24.25, Kapellendurchgang z15–18 -> diese Bereiche meiden.
+  const z2 = byZone(2); const zs2 = [9, 12.3, 13.9, 19.0, 22.0, 23.2];
   let li = 0, ri = 0;
   z2.forEach((w, i) => { const left = i % 2 === 0;
     if (left) { out.push(mk(w, xL, 1.5, zs2[li++], 'pX')); } else { out.push(mk(w, xR, 1.5, zs2[ri++], 'nX')); } });

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/test/controls.test.js",
+    "test": "node src/test/controls.test.js && node src/test/walk.test.js",
     "qr": "node tools/qr.js",
     "images": "node tools/process_images.js"
   },

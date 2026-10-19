@@ -12,3 +12,6 @@ tools/*.local.json
 
 # Lokaler Vorschau-Starter (nicht im Repo)
 *.command
+
+# Datenschutz-Suchskript – bleibt lokal (nennt die Suchmuster im Klartext)
+tools/privacy-check.sh

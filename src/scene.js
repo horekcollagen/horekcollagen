@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 import { makeTextPlane } from './labels.js';
 import {
   NAVE, APSE, CHAPEL, VEST, EMP, STAIRS, BILDWAND, PODIUM,
-  WIN_ZC, WIN_W, WIN_LO, WIN_HI, CHAPEL_WIN_ZC, GROUND, UPPER,
+  WIN_ZC, WIN_W, WIN_LO, WIN_HI, CHAPEL_WIN_ZC, GROUND, UPPER, EMPORE_RAILINGS,
 } from './layout.js';
 RectAreaLightUniformsLib.init();
 
@@ -89,10 +89,11 @@ export function buildGallery(renderer, quality, works = []) {
   // geteilte Glow-Textur für vorgetäuschte Lichtkegel/Lichtflecken (keine echten Lichter)
   const glowTex = new THREE.CanvasTexture(glowCanvas()); glowTex.colorSpace = THREE.SRGBColorSpace;
   // Werk-Lichtkegel: additiver Fleck an der Wand hinter dem Werk
-  const workGlow = (pos, normal, w, h, rotY) => {
+  const workGlow = (pos, normal, w, h, rotY, ph) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
       new THREE.MeshBasicMaterial({ map: glowTex, color: 0xfff1dc, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 }));
-    m.position.copy(pos).addScaledVector(normal, -0.165); m.position.y += h * 0.08; m.rotation.y = rotY; root.add(m);
+    // Kegel über dem Werk: Unterkante knapp über der Werk-Unterkante, nichts strahlt darunter.
+    m.position.copy(pos).addScaledVector(normal, -0.165); m.position.y += (h / 2 - ph / 2 + 0.08); m.rotation.y = rotY; root.add(m);
   };
   // farbiger Fensterfleck auf dem Boden (additiv, flach)
   const floorPatch = (x, z, size, color) => {
@@ -127,21 +128,23 @@ export function buildGallery(renderer, quality, works = []) {
     for (const zc of WIN_ZC) { const col = GLASS_COLORS[(Math.round(zc) + (face > 0 ? 0 : 3)) % GLASS_COLORS.length];
       floorPatch(x + face * 2.1, zc + 0.6, 2.6, col); } }
 
-  // ---------------- Apsis (Trommel bis zur Decke + Halbkuppel) ----------------
-  // Trommel reicht bis zur Nave-Decke, damit über dem Apsisrand keine Leere sichtbar wird.
-  const DRUM_H = NAVE.H;
+  // ---------------- Apsis: Trommel (Sammelwand) + saubere Halbkuppel (Viertelkugel) ----------------
+  // Trommel = halbzylindrische Apsiswand (z0..5). Höhe DRUM_H; darauf eine Viertelkugel,
+  // die genau auf dem Trommelrand aufsitzt und in z0..5 bleibt (ragt nicht ins Schiff).
+  // Kuppelscheitel = DRUM_H + r = 11.5 m < Nave-Decke (12) -> ragt nicht durch die Decke.
+  const DRUM_H = 6.5;
   const apseWall = new THREE.Mesh(
-    new THREE.CylinderGeometry(APSE.r, APSE.r, DRUM_H, 40, 1, true, Math.PI / 2, Math.PI),
+    new THREE.CylinderGeometry(APSE.r, APSE.r, DRUM_H, 48, 1, true, Math.PI / 2, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.96, side: THREE.DoubleSide }));
   apseWall.position.set(APSE.cx, DRUM_H / 2, APSE.cz); apseWall.receiveShadow = true; root.add(apseWall);
-  // Apsis-Flanken: Keil zwischen gerader Seitenwand (x4/x16, beginnt bei z5) und Trommelrand
-  // schließen – sonst sieht man seitlich der Apsis an der Trommel vorbei in die Leere.
-  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xL + 0.5, NAVE.H / 2, 2.9);   // links  (x4–5, z−0.2…6)
-  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xR - 0.5, NAVE.H / 2, 2.9);   // rechts (x15–16)
+  // Halbkuppel (Viertelkugel): -z-Hälfte (phiStart=π) => Grundkreis = Trommelrand, bleibt in z0..5.
   const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(APSE.r, 40, 20, Math.PI / 2, Math.PI, 0, Math.PI / 2),
+    new THREE.SphereGeometry(APSE.r, 48, 24, Math.PI, Math.PI, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0xe7e0d2, roughness: 0.96, side: THREE.DoubleSide }));
-  dome.position.set(APSE.cx, APSE.H, APSE.cz); root.add(dome);
+  dome.position.set(APSE.cx, DRUM_H, APSE.cz); root.add(dome);
+  // Apsis-Flanken (x4–5 / x15–16, z0–6) schließen die Seiten der Apsisbucht zur geraden Seitenwand.
+  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xL + 0.5, NAVE.H / 2, 2.9);
+  box(1.0, NAVE.H, 6.2, wallMat, NAVE.xR - 0.5, NAVE.H / 2, 2.9);
   // weiches Apsislicht (Garten Eden bleibt das hellste Werk)
   const apseFill = new THREE.PointLight(0xffe9cf, 8, 14, 1.2); apseFill.position.set(APSE.cx, 4.2, 3.0); scene.add(apseFill);
 
@@ -197,24 +200,45 @@ export function buildGallery(renderer, quality, works = []) {
   box(BILDWAND.right.xR - BILDWAND.right.xL, BILDWAND.H, 0.25, bwMat, (BILDWAND.right.xL + BILDWAND.right.xR) / 2, BILDWAND.H / 2, BILDWAND.z);
   box(BILDWAND.openX1 - BILDWAND.openX0, BILDWAND.H - BILDWAND.openH, 0.25, bwMat, (BILDWAND.openX0 + BILDWAND.openX1) / 2, BILDWAND.openH + (BILDWAND.H - BILDWAND.openH) / 2, BILDWAND.z);
 
-  // ---------------- Chorwand (Triumphbogen) über und neben der Bildwand ----------------
-  // Schließt den Blick nach oben in die Leere; die Apsisöffnung (x5–15, bis y=8) bleibt frei,
-  // damit Garten Eden und Kuppel aus dem Schiff und von der Empore sichtbar bleiben.
-  const chZ = 6.0, chOpenX0 = APSE.cx - APSE.r, chOpenX1 = APSE.cx + APSE.r, chOpenH = 8;
-  box(chOpenX0 - NAVE.xL, NAVE.H, 0.25, wallMat, (NAVE.xL + chOpenX0) / 2, NAVE.H / 2, chZ);                       // Pfeiler links
-  box(NAVE.xR - chOpenX1, NAVE.H, 0.25, wallMat, (chOpenX1 + NAVE.xR) / 2, NAVE.H / 2, chZ);                       // Pfeiler rechts
-  box(chOpenX1 - chOpenX0, NAVE.H - chOpenH, 0.25, wallMat, APSE.cx, chOpenH + (NAVE.H - chOpenH) / 2, chZ);       // Sturz
+  // ---------------- Chorwand (Ostwand) mit rundem Apsisbogen ----------------
+  // Durchgehende Wand x4–16, y0–12 bei z6 mit einer runden Bogenöffnung (x5–15, Kämpfer y6.5,
+  // Scheitel y11.5 = Kuppelrand). Darüber bis zur Decke geschlossen -> vom Schiff ein runder
+  // Bogen, darin die Kuppel; nichts ragt durch Wand oder Decke.
+  {
+    const chZ = 6.0, archSpring = DRUM_H, archR = APSE.r, cx = APSE.cx;
+    const shape = new THREE.Shape();
+    shape.moveTo(NAVE.xL, 0); shape.lineTo(NAVE.xR, 0); shape.lineTo(NAVE.xR, NAVE.H); shape.lineTo(NAVE.xL, NAVE.H);
+    const hole = new THREE.Path();
+    hole.moveTo(cx - archR, 0); hole.lineTo(cx - archR, archSpring);
+    hole.absarc(cx, archSpring, archR, Math.PI, 0, true);          // Halbkreisbogen x5 -> x15 über den Scheitel
+    hole.lineTo(cx + archR, 0); hole.lineTo(cx - archR, 0);
+    shape.holes.push(hole);
+    const chancel = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: false }),
+      new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.96, side: THREE.DoubleSide }));
+    chancel.position.set(0, 0, chZ - 0.125); chancel.receiveShadow = true; root.add(chancel);
+    // Backstein-Archivolte macht den runden Bogen sichtbar (wie die Fensterlaibungen)
+    const aOut = archR + 0.35;
+    const ring = new THREE.Shape();
+    ring.moveTo(cx - aOut, 0); ring.lineTo(cx - aOut, archSpring); ring.absarc(cx, archSpring, aOut, Math.PI, 0, true); ring.lineTo(cx + aOut, 0);
+    const rh = new THREE.Path();
+    rh.moveTo(cx - archR, 0); rh.lineTo(cx - archR, archSpring); rh.absarc(cx, archSpring, archR, Math.PI, 0, true); rh.lineTo(cx + archR, 0); rh.lineTo(cx - archR, 0);
+    ring.holes.push(rh);
+    const arch = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.22, bevelEnabled: false }),
+      new THREE.MeshStandardMaterial({ color: 0x9a7b5a, map: brickMat.map, roughness: 0.95, side: THREE.DoubleSide }));
+    arch.position.set(0, 0, chZ - 0.125 - 0.22); root.add(arch);
+  }
 
   // ---------------- Emporen (U-Form) + Geländer + Stützen + Treppe ----------------
   const upperFloors = [];
+  const emporeTargets = [];   // anklickbar von unten (Platte, Unterseite, Geländer) -> hoch
   const efMat = new THREE.MeshStandardMaterial({ color: 0x463424, roughness: 0.6 });
   const plate = (xL, xR, zF, zN) => {
     const w = xR - xL, d = zN - zF, cx = (xL + xR) / 2, cz = (zF + zN) / 2;
     // Tragplatte mit heller Unterseite (Kassettenfeld wie im Schiff); oben liegt der
     // dunkle Holzboden (ef) darüber, unten hängen dunkle Balken darunter.
-    box(w, 0.3, d, ceilFieldMat, cx, EMP.y - 0.15, cz);
+    const slab = box(w, 0.3, d, ceilFieldMat, cx, EMP.y - 0.15, cz); slab.userData = { emporeUp: true }; emporeTargets.push(slab);
     const ef = new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, d), efMat);
-    ef.position.set(cx, EMP.y + 0.015, cz); ef.userData = { empore: true }; root.add(ef); upperFloors.push(ef);
+    ef.position.set(cx, EMP.y + 0.015, cz); ef.userData = { empore: true }; root.add(ef); upperFloors.push(ef); emporeTargets.push(ef);
     for (let z = zF + 1.1; z < zN - 0.3; z += 2.3) box(w, 0.16, 0.16, darkWoodMat, cx, EMP.y - 0.42, z); // Querbalken
     for (const x of (w > 4 ? [cx - w / 4, cx + w / 4] : [cx])) box(0.16, 0.14, d, darkWoodMat, x, EMP.y - 0.41, cz); // Längsbalken
   };
@@ -224,14 +248,8 @@ export function buildGallery(renderer, quality, works = []) {
   plate(EMP.west.xL, EMP.west.xR, EMP.west.zF, STAIRS.zTop);   // Streifen vor dem Loch
   plate(EMP.left.xL, EMP.left.xR, EMP.left.zF, EMP.left.zN);
   plate(EMP.right.xL, EMP.right.xR, EMP.right.zF, EMP.right.zN);
-  // Geländer nur an freien Kanten: West über dem Schiff nur x7–13 (die Seitenemporen
-  // schließen bei x4–7 / x13–16 an – dort kein Geländer); Seitenemporen an x7 / x13.
-  railing(root, steelMat, 'z', EMP.west.zF, EMP.left.xR, EMP.right.xL, EMP.y);
-  railing(root, steelMat, 'x', EMP.left.xR, EMP.left.zF, EMP.left.zN, EMP.y);
-  railing(root, steelMat, 'x', EMP.right.xL, EMP.right.zF, EMP.right.zN, EMP.y);
-  // Treppenloch-Geländer an den beiden Längsseiten (x11 / x13), z 27–31; Austritt bei z27 offen.
-  railing(root, steelMat, 'x', STAIRS.xL, STAIRS.zTop, EMP.west.zN, EMP.y);
-  railing(root, steelMat, 'x', STAIRS.xR, STAIRS.zTop, EMP.west.zN, EMP.y);
+  // Geländer an JEDER freien Kante – datengetrieben aus EMPORE_RAILINGS (gleiche Quelle wie der Test).
+  for (const r of EMPORE_RAILINGS) emporeTargets.push(railing(root, steelMat, r.axis, r.at, r.a, r.b, EMP.y));
   // Säulen entlang der Seitengänge (x7 / x13) – enden UNTER der Emporenplatte (kein Kopf durch den Boden).
   const colMat = new THREE.MeshStandardMaterial({ color: 0xe4ddce, roughness: 0.9, metalness: 0 });
   const colH = EMP.y - 0.3;   // Platte liegt bei y≈4.7..5.0; Säule endet darunter
@@ -288,7 +306,7 @@ export function buildGallery(renderer, quality, works = []) {
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(pw * 1.22, ph * 1.2), new THREE.MeshBasicMaterial({ map: sTex, transparent: true, depthWrite: false, opacity: 0.8 }));
     sh.position.copy(panel.position).addScaledVector(normal, -0.015); sh.position.y -= ph * 0.03; sh.rotation.y = w.rotY; root.add(sh);
     // vorgetäuschter Lichtkegel an der Wand (additiver Fleck – ersetzt den Werk-Spot)
-    workGlow(panel.position, normal, Math.max(pw * 1.7, 0.9), Math.max(ph * 1.5, 1.3), w.rotY);
+    workGlow(panel.position, normal, Math.max(pw * 1.7, 0.9), Math.max(ph * 1.5, 1.3), w.rotY, ph);
   }
   function lazyLoad(camera, all = false) {
     let budget = all ? 999 : 3;
@@ -302,7 +320,7 @@ export function buildGallery(renderer, quality, works = []) {
     }
   }
 
-  return { scene, envTex, pmrem, worksMeshes, raycastTargets: worksMeshes, loadMgr: new THREE.LoadingManager(), floors, upperFloors, stairTarget, doorTriggers: [], lazyLoad };
+  return { scene, envTex, pmrem, worksMeshes, raycastTargets: worksMeshes, loadMgr: new THREE.LoadingManager(), floors, upperFloors, emporeTargets, stairTarget, doorTriggers: [], lazyLoad };
 }
 
 // ---- Seitenwand (x const) mit je 4 Fensterpaaren (unten+oben) + Tageslicht ----
@@ -356,7 +374,10 @@ function buildChapel(root, box, side, wallMat, brickMat, darkWoodMat, scene, qua
 }
 
 function railing(root, mat, axis, at, a, b, y) {
-  const top = new THREE.Mesh(axis === 'z' ? new THREE.BoxGeometry(b - a, 0.05, 0.05) : new THREE.BoxGeometry(0.05, 0.05, b - a), mat);
-  if (axis === 'z') top.position.set((a + b) / 2, y + EMP.rail, at); else top.position.set(at, y + EMP.rail, (a + b) / 2); root.add(top);
+  // sichtbarer Handlauf (zugleich Klick-Ziel „hoch") + Pfosten. Kein geschlossenes Panel,
+  // damit man von der Empore ZWISCHEN den Pfosten auf den Schiffboden klicken kann (runter).
+  const top = new THREE.Mesh(axis === 'z' ? new THREE.BoxGeometry(b - a, 0.08, 0.08) : new THREE.BoxGeometry(0.08, 0.08, b - a), mat);
+  if (axis === 'z') top.position.set((a + b) / 2, y + EMP.rail, at); else top.position.set(at, y + EMP.rail, (a + b) / 2); top.userData = { emporeUp: true }; root.add(top);
   for (let t = a + 0.2; t <= b - 0.2; t += 0.9) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.04, EMP.rail, 0.04), mat); if (axis === 'z') p.position.set(t, y + EMP.rail / 2, at); else p.position.set(at, y + EMP.rail / 2, t); root.add(p); }
+  return top;
 }

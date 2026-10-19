@@ -49,6 +49,29 @@ export const UPPER = [
   { xL: 13.4, xR: 15.6, zF: 8.4, zN: 26.6 },   // rechte Seitenempore
 ];
 
+// Emporen-Bodenplatten (Geometrie) für den Geländer-/Kanten-Test.
+export const EMPORE_FLOORS = [
+  { xL: NAVE.xL, xR: STAIRS.xL, zF: STAIRS.zTop, zN: EMP.west.zN },        // West links vom Treppenloch (4–11, 27–31)
+  { xL: STAIRS.xR, xR: NAVE.xR, zF: STAIRS.zTop, zN: EMP.west.zN },        // West rechts (13–16, 27–31)
+  { xL: NAVE.xL, xR: NAVE.xR, zF: EMP.west.zF, zN: STAIRS.zTop },          // West Streifen (4–16, 26–27)
+  { xL: EMP.left.xL, xR: EMP.left.xR, zF: EMP.left.zF, zN: EMP.left.zN },  // linke Seitenempore (4–7, 8–26)
+  { xL: EMP.right.xL, xR: EMP.right.xR, zF: EMP.right.zF, zN: EMP.right.zN }, // rechte (13–16, 8–26)
+];
+// Geländer-Segmente (axis='z': entlang z=at von x=a..b; axis='x': entlang x=at von z=a..b).
+export const EMPORE_RAILINGS = [
+  { axis: 'z', at: EMP.west.zF, a: EMP.left.xR, b: EMP.right.xL },    // West über dem Schiff (z26, x7–13)
+  { axis: 'x', at: EMP.left.xR, a: EMP.left.zF, b: EMP.left.zN },     // linke Kante (x7, z8–26)
+  { axis: 'x', at: EMP.right.xL, a: EMP.right.zF, b: EMP.right.zN },  // rechte Kante (x13, z8–26)
+  { axis: 'z', at: EMP.left.zF, a: EMP.left.xL, b: EMP.left.xR },     // linke Stirnseite zur Apsis (z8, x4–7)
+  { axis: 'z', at: EMP.right.zF, a: EMP.right.xL, b: EMP.right.xR },  // rechte Stirnseite (z8, x13–16)
+  { axis: 'x', at: STAIRS.xL, a: STAIRS.zTop, b: EMP.west.zN },       // Treppenloch links (x11, z27–31)
+  { axis: 'x', at: STAIRS.xR, a: STAIRS.zTop, b: EMP.west.zN },       // Treppenloch rechts (x13, z27–31)
+];
+// Wände an Emporenkanten (keine freie Kante): Seitenwände x4/x16, Rückwand z31.
+export const EMPORE_WALLS = [{ axis: 'x', at: NAVE.xL }, { axis: 'x', at: NAVE.xR }, { axis: 'z', at: EMP.west.zN }];
+// Erlaubte Öffnung (kein Geländer): Treppenaustritt oben (z27, x11–13).
+export const EMPORE_OPENINGS = [{ axis: 'z', at: STAIRS.zTop, a: STAIRS.xL, b: STAIRS.xR }];
+
 // Sieben Stationen (Raumleiste + „Weiter"). level 0 = unten, 1 = Empore.
 export const STATIONS = [
   { key: 'vorhalle',      label: 'Vorhalle',      x: 10, z: 33.5, yaw: 0, level: 0 },

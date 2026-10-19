@@ -27,37 +27,50 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
   rooms.querySelectorAll('button[data-station]').forEach(b => b.addEventListener('click', () => onStation(b.dataset.station)));
   const weiter = document.querySelector('#weiter'); if (weiter) weiter.addEventListener('click', onNext);
 
-  // ---- Lupe (Zoom/Pan, hires nur bei Bedarf) ----
-  const lupe = $('#lupe'), lupeImg = $('#lupeImg'), lupeStage = $('#lupeStage');
-  let scale = 1, tx = 0, ty = 0;
-  const applyT = () => { lupeImg.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
-  function openLupe(wk) {
-    scale = 1; tx = 0; ty = 0; applyT();
-    const webp = BASE + 'works/' + wk.slug + '.webp';
+  // ---- Hover-Lupe: runde Lupe folgt dem Zeiger über dem Werk und zeigt die hires-Datei vergrößert ----
+  //   Maus: über dem Werk erscheint die Lupe am Zeiger, verlässt die Maus das Werk, verschwindet sie.
+  //   Handy: Finger auf das Werk legen und ziehen zeigt die Lupe etwas oberhalb des Fingers, loslassen blendet aus.
+  //   Mausrad ändert die Vergrößerung zwischen 2- und 5-fach. Kleine Fotos werden nicht hochgerechnet.
+  const LENS_D = 250;
+  const lens = document.createElement('div');
+  lens.id = 'lens'; lens.setAttribute('aria-hidden', 'true');
+  lens.style.cssText = 'position:fixed;width:' + LENS_D + 'px;height:' + LENS_D + 'px;border-radius:50%;'
+    + 'border:3px solid rgba(255,255,255,.9);box-shadow:0 6px 28px rgba(0,0,0,.55);pointer-events:none;'
+    + 'z-index:45;display:none;background-repeat:no-repeat;background-color:#15120f';
+  document.body.appendChild(lens);
+  const src = { ready: false, url: '', iw: 0, ih: 0 };
+  let zoom = 3, lastL = null;
+  function preloadHires(wk) {               // hires laden, sobald die Infotafel aufgeht
+    src.ready = false; src.url = ''; src.iw = 0; src.ih = 0; lastL = null;
     const hires = BASE + 'works/hires/' + wk.nr + '.jpg';
-    lupeImg.src = webp;                       // sofort das vorhandene Foto
-    const probe = new Image();                // hires separat laden, wenn vorhanden
-    probe.onload = () => { lupeImg.src = hires; };
-    probe.onerror = () => {};
-    probe.src = hires;
-    lupe.classList.add('open'); lupe.setAttribute('aria-hidden', 'false');
+    const webp = BASE + 'works/' + wk.slug + '.webp';
+    const im = new Image();
+    im.onload = () => { src.ready = true; src.url = hires; src.iw = im.naturalWidth; src.ih = im.naturalHeight; };
+    im.onerror = () => { const w2 = new Image(); w2.onload = () => { src.ready = true; src.url = webp; src.iw = w2.naturalWidth; src.ih = w2.naturalHeight; }; w2.src = webp; };
+    im.src = hires;
   }
-  const closeLupe = () => { lupe.classList.remove('open'); lupe.setAttribute('aria-hidden', 'true'); };
-  $('#lupeClose').addEventListener('click', closeLupe);
-  lupe.addEventListener('wheel', e => { e.preventDefault(); scale = Math.min(6, Math.max(1, scale * (e.deltaY < 0 ? 1.12 : 0.89))); if (scale === 1) { tx = 0; ty = 0; } applyT(); }, { passive: false });
-  // Ziehen + Pinch
-  const pts = new Map(); let last = null, pinch0 = 0, scale0 = 1;
-  lupe.addEventListener('pointerdown', e => { pts.set(e.pointerId, e); lupe.classList.add('drag'); lupe.setPointerCapture(e.pointerId); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); scale0 = scale; } else last = { x: e.clientX, y: e.clientY }; });
-  lupe.addEventListener('pointermove', e => {
-    if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); scale = Math.min(6, Math.max(1, scale0 * d / (pinch0 || d))); applyT(); }
-    else if (last && scale > 1) { tx += e.clientX - last.x; ty += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; applyT(); }
-  });
-  const endPt = e => { pts.delete(e.pointerId); if (pts.size < 2) last = null; if (!pts.size) lupe.classList.remove('drag'); };
-  lupe.addEventListener('pointerup', endPt); lupe.addEventListener('pointercancel', endPt);
-  addEventListener('keydown', e => { if (e.key === 'Escape') closeLupe(); });
-  let curWork = null;
-  $('#lupeBtn').addEventListener('click', () => { if (curWork) openLupe(curWork); });
+  function showLens(clientX, clientY, u, v, screenW, touch) {
+    if (!src.ready || !src.url) return;
+    // Darstellungsbreite = zoom × Breite des Werks auf dem Schirm, aber nie über die native Pixelzahl (kein Hochrechnen).
+    const dispW = Math.min(zoom * screenW, src.iw);
+    const dispH = dispW * src.ih / src.iw;
+    const px = u * dispW, py = (1 - v) * dispH;   // three.js-UV unten links -> Bild oben links: v' = 1 - v
+    lens.style.backgroundImage = 'url("' + src.url + '")';
+    lens.style.backgroundSize = dispW.toFixed(1) + 'px ' + dispH.toFixed(1) + 'px';
+    lens.style.backgroundPosition = (LENS_D / 2 - px).toFixed(1) + 'px ' + (LENS_D / 2 - py).toFixed(1) + 'px';
+    const offY = touch ? (LENS_D / 2 + 40) : 0;   // auf dem Handy etwas oberhalb des Fingers
+    lens.style.left = Math.round(clientX - LENS_D / 2) + 'px';
+    lens.style.top = Math.round(clientY - LENS_D / 2 - offY) + 'px';
+    lens.style.display = 'block';
+    lastL = { clientX, clientY, u, v, screenW, touch };
+  }
+  function hideLens() { lens.style.display = 'none'; lastL = null; }
+  addEventListener('wheel', e => {
+    if (lens.style.display !== 'block' || !lastL) return;
+    e.preventDefault();
+    zoom = Math.min(5, Math.max(2, zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
+    showLens(lastL.clientX, lastL.clientY, lastL.u, lastL.v, lastL.screenW, lastL.touch);
+  }, { passive: false });
 
   let curRoom = 0;
   return {
@@ -65,8 +78,10 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
     ready() { barI.style.width = '100%'; barLbl.textContent = ''; enter.disabled = false; },
     fail(msg) { enter.disabled = false; barLbl.textContent = msg || 'Trotzdem betreten'; },
     enterNow() { if (!entered) enter.click(); },
+    lens: showLens,
+    hideLens,
     openPanel(w) {
-      curWork = w;
+      preloadHires(w);
       panel.querySelector('.ptitle').textContent = w.title;
       panel.querySelector('.pyear').textContent = w.year;
       panel.querySelector('.pdim').textContent = (w.approx === false ? '' : 'ca. ') + cm(w.h) + ' × ' + cm(w.b) + ' cm';
@@ -78,7 +93,7 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
       panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
       document.body.classList.add('panel-open');   // Raumleiste + Bedienzeile ausblenden
     },
-    closePanel() { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); document.body.classList.remove('panel-open'); },
+    closePanel() { hideLens(); panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); document.body.classList.remove('panel-open'); },
     setRoom(n) {
       if (n === curRoom) return; curRoom = n;
       rooms.querySelectorAll('button[data-station]').forEach(b => b.classList.toggle('on', b.dataset.station === String(n)));

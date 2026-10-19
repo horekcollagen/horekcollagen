@@ -81,7 +81,9 @@ export function hangAll(RAW) {
       out.push(mk(w, dir.endsWith('X') ? a : a, 1.5, dir.endsWith('Z') ? b : 16.5, dir)); }); }
 
   // ---------- Zone 6: Westempore, Reihe an der Rückwand (z31), Blick vom Schiff ----------
-  const z6 = byZone(6); const xs6 = [5, 7, 9, 11, 13, 15];
+  // x-Slots NICHT auf den Wandkanten x7/x13 (sonst sieht man die Querwand von der Kante her
+  // als „Keil" unter dem Werk) – auf glatten Wandflächen hängen.
+  const z6 = byZone(6); const xs6 = [5, 8, 9.5, 11, 12, 15];
   z6.forEach((w, i) => out.push(mk(w, xs6[i] ?? (5 + i * 2), EMP.y + 1.6, EMP.west.zN - OFF, 'nZ')));
 
   // ---------- Zone 7: Seitenemporen, Außenwände zwischen oberen Fenstern ----------

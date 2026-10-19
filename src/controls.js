@@ -20,6 +20,11 @@ export class Controls {
     this.ray = new THREE.Raycaster(); this.ndc = new THREE.Vector2();
     this.groundFloors = (gallery.floors || []).filter(f => f.userData.floor);
     this.upperFloors = gallery.upperFloors || [];
+    this.emporeTargets = gallery.emporeTargets || this.upperFloors;   // von unten anklickbar -> hoch
+    // Landering: heller Ring auf dem Boden, wo der Klick landet (auch auf der anderen Ebene)
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.33, 0.52, 40),
+      new THREE.MeshBasicMaterial({ color: 0xfff2d8, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    this.ring.rotation.x = -Math.PI / 2; this.ring.renderOrder = 6; this.ring.visible = false; gallery.scene.add(this.ring);
     this._bind(); this.apply();
   }
   eyeY() { return this.level === 1 ? EMP.eye : EYE; }
@@ -35,28 +40,74 @@ export class Controls {
 
   _bind() {
     const el = this.dom; let dragging = false, lx = 0, ly = 0, moved = 0;
-    el.addEventListener('pointerdown', e => { if (this.mode !== 'free') return; dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId); });
-    el.addEventListener('pointermove', e => { if (!dragging) return; const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy); const r = applyLook(this.state, dx, dy); this.state.yaw = r.yaw; this.state.pitch = r.pitch; });
-    el.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; try { el.releasePointerCapture(e.pointerId); } catch (_) {} if (moved < 9) { this._setNdc(e); this._click(); } });
+    el.addEventListener('pointerdown', e => {
+      if (this.mode === 'atWork') { if (e.pointerType === 'touch') { this._lensDown = true; this._lensMove(e); } return; }
+      if (this.mode !== 'free') return; dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; this._hideRing(); el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', e => {
+      if (this.mode === 'atWork') { this._lensMove(e); return; }   // Hover-Lupe über dem Werk
+      if (dragging) { const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy); const r = applyLook(this.state, dx, dy); this.state.yaw = r.yaw; this.state.pitch = r.pitch; return; }
+      if (this.mode === 'free' && e.pointerType !== 'touch') this._hover(e);   // Landering beim Überfahren (Maus)
+    });
+    el.addEventListener('pointerleave', () => { this._hideRing(); this.ui.hideLens(); });
+    el.addEventListener('pointerup', e => {
+      if (this.mode === 'atWork') { if (e.pointerType === 'touch') { this._lensDown = false; this.ui.hideLens(); } return; }
+      if (!dragging) return; dragging = false; try { el.releasePointerCapture(e.pointerId); } catch (_) {} if (moved < 9) { this._setNdc(e); this._click(); } this._hideRing();
+    });
+    el.addEventListener('pointercancel', () => { if (this.mode === 'atWork') { this._lensDown = false; this.ui.hideLens(); } });
     const map = { arrowup: 'fwd', w: 'fwd', arrowdown: 'back', s: 'back', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'shift' };
     addEventListener('keydown', e => { if (this.mode !== 'free') return; const k = e.key.toLowerCase(); if (!(k in map)) return; if (k.startsWith('arrow')) e.preventDefault(); this.keys.add(map[k]); this.walk = null; });
     addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k in map) this.keys.delete(map[k]); });
   }
   _setNdc(e) { const r = this.dom.getBoundingClientRect(); this.ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1; this.ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1; }
-  _click() {
+  // Einheitliche Auflösung: was passiert beim Klick/Hover an dieser Bildschirmstelle?
+  _landingFor(ndc) {
+    this.ray.setFromCamera(ndc, this.cam);
+    const works = this.ray.intersectObjects(this.g.worksMeshes, false);
+    const up = this.ray.intersectObjects([this.g.stairTarget, ...this.emporeTargets].filter(Boolean), false);
+    const ground = this.ray.intersectObjects(this.groundFloors, false);
+    const cands = [];
+    if (works.length) cands.push({ d: works[0].distance, kind: 'work', obj: works[0].object });
+    if (up.length && this.level !== 1) cands.push({ d: up[0].distance, kind: 'up', p: up[0].point });  // 'hoch' nur von unten
+    if (ground.length) cands.push({ d: ground[0].distance, kind: 'ground', p: ground[0].point });
+    if (!cands.length) return null;
+    cands.sort((a, b) => a.d - b.d);
+    const t = cands[0];
+    if (t.kind === 'work') { const w = t.obj.userData.work; const lvl = w.level === 'empore' ? 1 : 0; const s = this._workLanding(t.obj); return { kind: 'work', obj: t.obj, level: lvl, x: s.x, z: s.z }; }
+    if (t.kind === 'up') { const s = this.clampToRegion(UPPER, t.p.x, t.p.z); return { kind: 'up', level: 1, x: s.x, z: s.z }; }
+    if (this.level === 1) { const s = this.clampToRegion(GROUND, t.p.x, t.p.z); return { kind: 'down', level: 0, x: s.x, z: s.z }; }
+    return { kind: 'walk', level: 0, x: t.p.x, z: t.p.z };
+  }
+  _workLanding(mesh) {
+    const c = mesh.userData.center, n = mesh.userData.normal, lvl = mesh.userData.work.level === 'empore' ? 1 : 0;
+    return this.clampToRegion(lvl === 1 ? UPPER : GROUND, c.x + n.x * 1.4, c.z + n.z * 1.4);
+  }
+  // Hover-Lupe: Werk unter dem Zeiger abtasten (UV) und die Lupe an der UI anstoßen.
+  _lensMove(e) {
+    if (this.mode !== 'atWork' || !this.focus) return;
+    const touch = e.pointerType === 'touch';
+    if (touch && !this._lensDown) return;            // Handy: nur mit aufgelegtem Finger
+    this._setNdc(e);
     this.ray.setFromCamera(this.ndc, this.cam);
-    const w = this.ray.intersectObjects(this.g.worksMeshes, false);
-    if (w.length) { this._focusWork(w[0].object); return; }
-    const up = this.ray.intersectObjects([this.g.stairTarget, ...this.upperFloors].filter(Boolean), false);
-    const fl = this.ray.intersectObjects(this.groundFloors, false);
-    const c = [];
-    if (up.length) c.push({ d: up[0].distance, kind: 'up', p: up[0].point });
-    if (fl.length) c.push({ d: fl[0].distance, kind: 'ground', p: fl[0].point });
-    if (!c.length) return; c.sort((a, b) => a.d - b.d);
-    const t = c[0];
-    if (t.kind === 'up') this._changeLevel(1, t.p);
-    else if (this.level === 1) this._changeLevel(0, t.p);
-    else this.walk = { x: t.p.x, z: t.p.z };
+    const hit = this.ray.intersectObject(this.focus, false)[0];
+    if (!hit || !hit.uv) { this.ui.hideLens(); return; }
+    this.ui.lens(e.clientX, e.clientY, hit.uv.x, hit.uv.y, this._workScreenWidth(), touch);
+  }
+  _workScreenWidth() {   // Breite des Werks auf dem Bildschirm in Pixeln (für den Lupenmaßstab)
+    const m = this.focus, c = m.userData.center, n = m.userData.normal, pw = m.userData.work.b / 1000;
+    const right = new THREE.Vector3(n.z, 0, -n.x).multiplyScalar(pw / 2);
+    const a = c.clone().add(right).project(this.cam), b = c.clone().sub(right).project(this.cam);
+    return Math.max(40, Math.abs(a.x - b.x) * this.dom.getBoundingClientRect().width / 2);
+  }
+  _showRing(x, z, level) { this.ring.position.set(x, (level === 1 ? EMP.y : 0) + 0.03, z); this.ring.visible = true; }
+  _hideRing() { if (this.ring) this.ring.visible = false; }
+  _hover(e) { this._setNdc(e); const L = this._landingFor(this.ndc); if (L && L.kind !== 'walk') this._showRing(L.x, L.z, L.level); else this._hideRing(); }
+  _click() {
+    const L = this._landingFor(this.ndc); this._hideRing();
+    if (!L) return;
+    if (L.kind === 'work') this._focusWork(L.obj);
+    else if (L.kind === 'up' || L.kind === 'down') this._changeLevel(L.level, { x: L.x, z: L.z });
+    else this.walk = { x: L.x, z: L.z };
   }
   _changeLevel(level, p) {
     const t = this.clampToRegion(level === 1 ? UPPER : GROUND, p.x, p.z);
@@ -79,6 +130,7 @@ export class Controls {
 
   _focusWork(mesh) {
     const wk = mesh.userData.work, c = mesh.userData.center, n = mesh.userData.normal;
+    this.level = wk.level === 'empore' ? 1 : 0;   // Klick auf Emporenwerk von unten -> hoch
     const pw = wk.b / 1000, ph = wk.h / 1000;
     const dist = Math.min(3.6, Math.max(0.9, Math.max(pw, ph) * 1.5 + 0.5));
     const to = c.clone().addScaledVector(n, dist); to.y = Math.min(Math.max(c.y, 1.3), EMP.eye + 0.5);

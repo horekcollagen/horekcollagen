@@ -66,23 +66,7 @@
   #panel .back{background:transparent;color:#9a9284;border-color:transparent;font-weight:500;padding:8px}
   #panel .back:hover{color:#efe9dd}
   #panel .ptext{font-size:14px;line-height:1.55;color:#c9c2b5;margin:2px 0 0}
-  #panel .plupe{align-self:flex-start;background:transparent;border:1px solid var(--line);color:#cfc8bb;
-    font-size:13px;padding:8px 12px;border-radius:2px;cursor:pointer}
-  #panel .plupe:hover{background:#221f1a;color:#efe9dd}
   #panel .pprice{font-size:21px;font-weight:700;color:#f3efe7;margin-top:4px}
-
-  #lupe{position:fixed;inset:0;z-index:40;background:rgba(10,9,8,.96);display:none;
-    touch-action:none;cursor:grab}
-  #lupe.open{display:block}
-  #lupe.drag{cursor:grabbing}
-  .lupeStage{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
-  #lupeImg{max-width:92vw;max-height:92vh;transform-origin:center center;user-select:none;-webkit-user-drag:none;
-    box-shadow:0 10px 60px rgba(0,0,0,.6)}
-  .lupeHint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:41;color:#b4ac9d;
-    font-size:12px;background:rgba(16,14,12,.7);border:1px solid var(--line);padding:6px 12px;border-radius:999px}
-  #lupeClose{position:fixed;top:12px;right:16px;z-index:41;width:42px;height:42px;border-radius:50%;
-    border:1px solid var(--line);background:rgba(18,16,14,.8);color:#efe9dd;font-size:24px;line-height:1;cursor:pointer}
-  #lupeClose:hover{background:#221f1a}
   @media (max-width:560px){
     #panel{width:100%;border-left:0;padding:28px 20px calc(20px + env(safe-area-inset-bottom))}
     #hint{bottom:70px;white-space:normal;text-align:center;max-width:90vw;line-height:1.35;border-radius:14px}
@@ -97,7 +81,6 @@
   <div class="pmeta"><span class="pyear"></span> · Collage auf Holz, Unikat</div>
   <div class="pdim"></div>
   <p class="ptext" hidden></p>
-  <button class="plupe" id="lupeBtn" type="button">Werk vergrößern (Lupe)</button>
   <div class="pprice"></div>
   <div class="pbtns">
     <a class="btn ask" id="askOrig" href="#">Original anfragen</a>
@@ -105,12 +88,6 @@
     <button class="btn back" id="backBtn" type="button">Zurück in den Raum</button>
   </div>
 </aside>
-
-<div id="lupe" aria-hidden="true">
-  <div class="lupeStage" id="lupeStage"><img id="lupeImg" alt="" draggable="false"></div>
-  <div class="lupeHint">Mausrad / Pinch zum Zoomen · Ziehen zum Verschieben</div>
-  <button id="lupeClose" type="button" aria-label="Schließen">×</button>
-</div>
 
 <div id="hint"></div>
 <nav id="rooms" aria-label="Stationen">

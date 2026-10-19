@@ -5,7 +5,7 @@
 //      node src/test/walk.test.js   (teil von npm test)
 // ============================================================================
 import assert from 'node:assert/strict';
-import { GROUND, UPPER } from '../layout.js';
+import { GROUND, UPPER, EMPORE_FLOORS, EMPORE_RAILINGS, EMPORE_WALLS, EMPORE_OPENINGS } from '../layout.js';
 
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log('  ✓ ' + name); }
@@ -60,4 +60,45 @@ const U = { westempore: { x: 10, z: 28.3 }, seitenL: { x: 5.5, z: 16 }, seitenR:
 check('Westempore -> linke Seitenempore', () => assert.ok(connected(UPPER, U.westempore, U.seitenL)));
 check('Westempore -> rechte Seitenempore', () => assert.ok(connected(UPPER, U.westempore, U.seitenR)));
 
-console.log(`\nAlle ${passed} Laufwege-Tests gruen.`);
+// ---- Geländer an jeder freien Kante -------------------------------------------------------
+const TOL = 0.2;
+const onFloor = (floors, x, z) => floors.some(f => x > f.xL - 1e-6 && x < f.xR + 1e-6 && z > f.zF - 1e-6 && z < f.zN + 1e-6);
+function covered(s) {
+  // (a) angrenzende Platte außerhalb der Kante -> interne Fuge, keine freie Kante
+  const ox = s.x + s.outDir.dx * 0.25, oz = s.z + s.outDir.dz * 0.25;
+  if (onFloor(EMPORE_FLOORS.filter(f => f !== s.floor), ox, oz)) return true;
+  // (b) Wand an dieser Kantenlinie
+  if (EMPORE_WALLS.some(w => w.axis === s.edge && Math.abs(w.at - s.at) < TOL)) return true;
+  // (c) Geländer deckt den Punkt
+  const seg = (list) => list.some(r => r.axis === s.edge && Math.abs(r.at - s.at) < TOL &&
+    (s.edge === 'z' ? (s.x > r.a - TOL && s.x < r.b + TOL) : (s.z > r.a - TOL && s.z < r.b + TOL)));
+  if (seg(EMPORE_RAILINGS)) return true;
+  // (d) erlaubte Öffnung (Treppenaustritt)
+  if (seg(EMPORE_OPENINGS)) return true;
+  return false;
+}
+function edgeSamples(f) {
+  const out = [], step = 0.4;
+  for (const [at, od] of [[f.zF, -1], [f.zN, 1]]) for (let x = f.xL + 0.15; x <= f.xR - 0.15; x += step) out.push({ floor: f, edge: 'z', at, x, z: at, outDir: { dx: 0, dz: od } });
+  for (const [at, od] of [[f.xL, -1], [f.xR, 1]]) for (let z = f.zF + 0.15; z <= f.zN - 0.15; z += step) out.push({ floor: f, edge: 'x', at, x: at, z, outDir: { dx: od, dz: 0 } });
+  return out;
+}
+check('Jede freie Emporenkante hat Wand oder Geländer', () => {
+  const bad = [];
+  for (const f of EMPORE_FLOORS) for (const s of edgeSamples(f)) if (!covered(s)) bad.push(`${s.edge}@${s.at} x${s.x.toFixed(1)} z${s.z.toFixed(1)}`);
+  assert.equal(bad.length, 0, 'ungesicherte Kantenpunkte: ' + bad.slice(0, 6).join(' | '));
+});
+check('Von der Empore kommt man über keine Geländerkante hinaus', () => {
+  // an jedem Geländer: die Außenseite (Seite ohne Platte) ist nicht begehbar
+  for (const r of EMPORE_RAILINGS) {
+    const mid = r.axis === 'z' ? { x: (r.a + r.b) / 2, z: r.at } : { x: r.at, z: (r.a + r.b) / 2 };
+    for (const d of [0.3, 0.6]) {
+      let ox = mid.x, oz = mid.z;
+      if (r.axis === 'z') { const floorPlus = onFloor(EMPORE_FLOORS, mid.x, r.at + 0.2); oz = r.at + (floorPlus ? -d : d); }
+      else { const floorPlus = onFloor(EMPORE_FLOORS, r.at + 0.2, mid.z); ox = r.at + (floorPlus ? -d : d); }
+      assert.ok(!inRects(UPPER, ox, oz), `jenseits des Geländers begehbar: x${ox.toFixed(1)} z${oz.toFixed(1)}`);
+    }
+  }
+});
+
+console.log(`\nAlle ${passed} Laufwege-/Kanten-Tests gruen.`);

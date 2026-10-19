@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+
+# interne Deliverables (nicht veröffentlichen)
+KODEE_PROMPT_Kirche.md
+startbild/
+tools/*.local.json
+*.local.json

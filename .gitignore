@@ -7,3 +7,5 @@ KODEE_PROMPT_Kirche.md
 startbild/
 tools/*.local.json
 *.local.json
+.DS_Store
+**/.DS_Store

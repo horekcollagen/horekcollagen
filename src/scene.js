@@ -64,6 +64,13 @@ function glassCanvas(seed = 1, cols = 5, rows = 9) {
   }
   return c;
 }
+// weicher runder Lichtfleck (für vorgetäuschte Werk-Kegel und farbige Fensterflecken)
+function glowCanvas() {
+  const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d'); const gr = g.createRadialGradient(s / 2, s / 2, 2, s / 2, s / 2, s / 2);
+  gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, s, s); return c;
+}
 
 export function buildGallery(renderer, quality, works = []) {
   const aniso = renderer.capabilities.getMaxAnisotropy();
@@ -75,8 +82,24 @@ export function buildGallery(renderer, quality, works = []) {
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
 
-  scene.add(new THREE.HemisphereLight(0xf3f0ea, 0xbfae95, 0.42));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+  // Globales Licht trägt den Raum (statt 100+ Einzellichtern): Hemisphäre + Ambient.
+  scene.add(new THREE.HemisphereLight(0xf5f1ea, 0xc9bca6, 0.95));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.32));
+
+  // geteilte Glow-Textur für vorgetäuschte Lichtkegel/Lichtflecken (keine echten Lichter)
+  const glowTex = new THREE.CanvasTexture(glowCanvas()); glowTex.colorSpace = THREE.SRGBColorSpace;
+  // Werk-Lichtkegel: additiver Fleck an der Wand hinter dem Werk
+  const workGlow = (pos, normal, w, h, rotY) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: glowTex, color: 0xfff1dc, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 }));
+    m.position.copy(pos).addScaledVector(normal, -0.165); m.position.y += h * 0.08; m.rotation.y = rotY; root.add(m);
+  };
+  // farbiger Fensterfleck auf dem Boden (additiv, flach)
+  const floorPatch = (x, z, size, color) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 1.6),
+      new THREE.MeshBasicMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z); root.add(m);
+  };
 
   // ---- Materialien ----
   const wallMat = new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.96, metalness: 0, envMapIntensity: 0.5 });
@@ -99,6 +122,10 @@ export function buildGallery(renderer, quality, works = []) {
   // ---------------- Seitenwände mit Fenstern ----------------
   buildSideWall(root, 4, +1, wallMat, brickMat, darkWoodMat, scene, quality);   // links
   buildSideWall(root, 16, -1, wallMat, brickMat, darkWoodMat, scene, quality);  // rechts
+  // farbige Fensterflecken auf dem Boden (additiv, vorberechnet – ersetzt die Boden-Spots)
+  for (const face of [+1, -1]) { const x = face > 0 ? 4 : 16;
+    for (const zc of WIN_ZC) { const col = GLASS_COLORS[(Math.round(zc) + (face > 0 ? 0 : 3)) % GLASS_COLORS.length];
+      floorPatch(x + face * 2.1, zc + 0.6, 2.6, col); } }
 
   // ---------------- Apsis (Trommel bis zur Decke + Halbkuppel) ----------------
   // Trommel reicht bis zur Nave-Decke, damit über dem Apsisrand keine Leere sichtbar wird.
@@ -115,7 +142,12 @@ export function buildGallery(renderer, quality, works = []) {
   const apseFill = new THREE.PointLight(0xffe9cf, 8, 14, 1.2); apseFill.position.set(APSE.cx, 4.2, 3.0); scene.add(apseFill);
 
   // ---------------- Nave-Decke: dunkle Fläche mit sichtbaren Holzbalken ----------------
-  box(NAVE.xR - NAVE.xL + 0.4, 0.3, NAVE.zEnd - NAVE.zApse + 0.4, new THREE.MeshStandardMaterial({ color: 0x251c13, roughness: 0.92 }), 10, NAVE.H + 0.05, (NAVE.zApse + NAVE.zEnd) / 2);
+  // Deckt auch die Apsisbucht (z0–5) ab, damit über der Kuppel kein Hintergrund durchblitzt.
+  const darkCeilMat = new THREE.MeshStandardMaterial({ color: 0x251c13, roughness: 0.92 });
+  box(NAVE.xR - NAVE.xL + 0.4, 0.3, NAVE.zEnd + 0.4, darkCeilMat, 10, NAVE.H + 0.05, (NAVE.zEnd + 0.2) / 2);
+  // breiter Deckel über der Apsisbucht/Chorzone (über der Kuppel, von innen unsichtbar):
+  // schließt die schrägen Eckblicke seitlich an der Apsis vorbei.
+  box(20, 0.3, 8, darkCeilMat, 10, NAVE.H + 0.04, 3);
   for (let z = NAVE.zApse + 1.75; z < NAVE.zEnd; z += 2.5) box(NAVE.xR - NAVE.xL, 0.42, 0.28, ceilWoodMat, 10, NAVE.H - 0.22, z);            // Querbalken
   for (const x of [5.5, 8, 10, 12, 14.5]) box(0.24, 0.32, NAVE.zEnd - NAVE.zApse, darkWoodMat, x, NAVE.H - 0.16, (NAVE.zApse + NAVE.zEnd) / 2); // Längsbalken
 
@@ -127,10 +159,13 @@ export function buildGallery(renderer, quality, works = []) {
   // Übergang Außenwand -> Vorhalle bei z=31 (links x4->7, rechts x16->13)
   box(VEST.xL - NAVE.xL, NAVE.H, 0.25, wallMat, (NAVE.xL + VEST.xL) / 2, NAVE.H / 2, VEST.zF);
   box(NAVE.xR - VEST.xR, NAVE.H, 0.25, wallMat, (VEST.xR + NAVE.xR) / 2, NAVE.H / 2, VEST.zF);
+  // Rückwand der Westempore über dem Vorhallen-Durchgang (schließt die Leere über der
+  // Vorhalle; weiß gekalkt; Serie 2020 hängt hier). Unten (y<5) bleibt der Durchgang frei.
+  box(VEST.xR - VEST.xL, NAVE.H - VEST.H, 0.25, wallMat, 10, VEST.H + (NAVE.H - VEST.H) / 2, VEST.zF);
   // Vorhallenwände
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xL, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xR, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
-  box(VEST.xR - VEST.xL + 0.3, VEST.H, 0.2, ceilWoodMat, 10, VEST.H, (VEST.zF + VEST.zN) / 2); // Decke Vorhalle
+  box(VEST.xR - VEST.xL + 0.3, 0.2, VEST.zN - VEST.zF + 0.3, ceilWoodMat, 10, VEST.H, (VEST.zF + VEST.zN) / 2); // Decke Vorhalle (waagerecht)
   // Eingangswand z=36 mit Tür
   const dW = VEST.doorW, dH = 2.6;
   box((10 - dW / 2) - VEST.xL, VEST.H, 0.3, wallMat, (VEST.xL + (10 - dW / 2)) / 2, VEST.H / 2, VEST.zN); // links
@@ -158,30 +193,42 @@ export function buildGallery(renderer, quality, works = []) {
 
   // ---------------- Emporen (U-Form) + Geländer + Stützen + Treppe ----------------
   const upperFloors = [];
-  for (const g of [EMP.west, EMP.left, EMP.right]) {
-    const w = g.xR - g.xL, d = g.zN - g.zF, cx = (g.xL + g.xR) / 2, cz = (g.zF + g.zN) / 2;
-    box(w, 0.3, d, darkWoodMat, cx, EMP.y - 0.15, cz);                    // Platte
-    const ef = new THREE.Mesh(new THREE.BoxGeometry(w - 0.05, 0.02, d - 0.05), new THREE.MeshStandardMaterial({ color: 0x463424, roughness: 0.6 }));
+  const efMat = new THREE.MeshStandardMaterial({ color: 0x463424, roughness: 0.6 });
+  const plate = (xL, xR, zF, zN) => {
+    const w = xR - xL, d = zN - zF, cx = (xL + xR) / 2, cz = (zF + zN) / 2;
+    box(w, 0.3, d, darkWoodMat, cx, EMP.y - 0.15, cz);                    // Tragplatte
+    const ef = new THREE.Mesh(new THREE.BoxGeometry(w - 0.05, 0.02, d - 0.05), efMat);
     ef.position.set(cx, EMP.y + 0.01, cz); ef.userData = { empore: true }; root.add(ef); upperFloors.push(ef);
-  }
-  // Geländer an den offenen Kanten (West z=26; links x=7; rechts x=13)
-  railing(root, steelMat, 'z', EMP.west.zF, EMP.west.xL, EMP.west.xR, EMP.y);
+  };
+  // Westempore mit Treppenloch (x 11–13, z 27–31); Seitenemporen voll.
+  plate(EMP.west.xL, STAIRS.xL, STAIRS.zTop, EMP.west.zN);     // links vom Loch
+  plate(STAIRS.xR, EMP.west.xR, STAIRS.zTop, EMP.west.zN);     // rechts vom Loch
+  plate(EMP.west.xL, EMP.west.xR, EMP.west.zF, STAIRS.zTop);   // Streifen vor dem Loch
+  plate(EMP.left.xL, EMP.left.xR, EMP.left.zF, EMP.left.zN);
+  plate(EMP.right.xL, EMP.right.xR, EMP.right.zF, EMP.right.zN);
+  // Geländer nur an freien Kanten: West über dem Schiff nur x7–13 (die Seitenemporen
+  // schließen bei x4–7 / x13–16 an – dort kein Geländer); Seitenemporen an x7 / x13.
+  railing(root, steelMat, 'z', EMP.west.zF, EMP.left.xR, EMP.right.xL, EMP.y);
   railing(root, steelMat, 'x', EMP.left.xR, EMP.left.zF, EMP.left.zN, EMP.y);
   railing(root, steelMat, 'x', EMP.right.xL, EMP.right.zF, EMP.right.zN, EMP.y);
-  // Säulen als Arkade entlang der Seitengänge (x7 / x13) + unter der Westempore
+  // Treppenloch-Geländer an den beiden Längsseiten (x11 / x13), z 27–31; Austritt bei z27 offen.
+  railing(root, steelMat, 'x', STAIRS.xL, STAIRS.zTop, EMP.west.zN, EMP.y);
+  railing(root, steelMat, 'x', STAIRS.xR, STAIRS.zTop, EMP.west.zN, EMP.y);
+  // Säulen entlang der Seitengänge (x7 / x13) – enden UNTER der Emporenplatte (kein Kopf durch den Boden).
   const colMat = new THREE.MeshStandardMaterial({ color: 0xe4ddce, roughness: 0.9, metalness: 0 });
-  const column = (x, z) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, EMP.y, 16), colMat); c.position.set(x, EMP.y / 2, z); c.castShadow = true; root.add(c);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.22, 0.25, 16), colMat); cap.position.set(x, EMP.y - 0.12, z); root.add(cap); };
+  const colH = EMP.y - 0.3;   // Platte liegt bei y≈4.7..5.0; Säule endet darunter
+  const column = (x, z) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, colH, 16), colMat); c.position.set(x, colH / 2, z); root.add(c);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.22, 0.2, 16), colMat); cap.position.set(x, colH - 0.12, z); root.add(cap); };
   for (const z of [10, 15, 20, 25]) { column(EMP.left.xR, z); column(EMP.right.xL, z); }
   for (const x of [5.5, 14.5]) column(x, EMP.west.zF);   // Mittelachse frei lassen
-  // Treppe (Vorhalle, rechts) hoch zur Westempore
-  const st = STAIRS, n = st.steps, stepW = st.xR - st.xL, run = st.zBottom - st.zTop, rise = st.yTop;
-  for (let i = 0; i < n; i++) { const h = (rise / n) * (i + 1), z = st.zBottom - (run / n) * (i + 0.5);
-    box(stepW, 0.08, run / n + 0.02, darkWoodMat, (st.xL + st.xR) / 2, h - 0.04, z);
-    box(stepW, rise / n, run / n, woodMat, (st.xL + st.xR) / 2, h - (rise / n) / 2, z); }
-  const stairTarget = new THREE.Mesh(new THREE.BoxGeometry(stepW, rise, Math.hypot(run, rise)), new THREE.MeshBasicMaterial({ visible: false }));
-  stairTarget.position.set((st.xL + st.xR) / 2, rise / 2, (st.zTop + st.zBottom) / 2);
-  stairTarget.rotation.x = -Math.atan2(rise, run); stairTarget.userData = { stairs: true }; root.add(stairTarget);
+  // Treppe steigt durch das Treppenloch: Fuß (y0) bei zBottom im Schiff, Kopf (y5) bei zTop auf der Empore.
+  const st = STAIRS, n = st.steps, cx = (st.xL + st.xR) / 2, stepW = st.xR - st.xL, run = st.zBottom - st.zTop, rise = st.yTop, sd = run / n;
+  for (let i = 0; i < n; i++) { const h = (rise / n) * (i + 1), z = st.zBottom - sd * (i + 0.5);
+    box(stepW, h, sd, darkWoodMat, cx, h / 2, z);                 // Stufenblock/Wange
+    box(stepW + 0.04, 0.1, sd + 0.04, woodMat, cx, h - 0.05, z); }// Trittfläche
+  // Wange/Brüstung seitlich der Treppe (geschlossen) als Stirnseiten
+  const stairTarget = new THREE.Mesh(new THREE.BoxGeometry(stepW, rise, run), new THREE.MeshBasicMaterial({ visible: false }));
+  stairTarget.position.set(cx, rise / 2, (st.zTop + st.zBottom) / 2); stairTarget.userData = { stairs: true }; root.add(stairTarget);
 
   // ---------------- Einrichtung ----------------
   // Bänke (4 Reihen je Seite)
@@ -215,27 +262,29 @@ export function buildGallery(renderer, quality, works = []) {
   const vtmp = new THREE.Vector3();
   for (const w of works) {
     const pw = w.b / 1000, ph = w.h / 1000;
+    // Werk zeigt sich in echten Farben, unabhängig von Szenenlicht (emissiveMap beim Laden).
     const face = new THREE.MeshStandardMaterial({ color: 0xdcd8cf, roughness: 0.72, metalness: 0 });
     const mats = [edgeMat, edgeMat, edgeMat, edgeMat, face, edgeMat];
     const panel = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.04), mats);
-    panel.position.set(w.x, w.y, w.z); panel.rotation.y = w.rotY; panel.castShadow = true;
+    panel.position.set(w.x, w.y, w.z); panel.rotation.y = w.rotY;
     const normal = new THREE.Vector3(...w.normal);
     panel.userData = { work: w, center: panel.position.clone(), normal };
     root.add(panel); worksMeshes.push(panel); lazy.push({ panel, face, w, loaded: false });
-    // weicher Schlagschatten
+    // weicher Schlagschatten (gefälscht, kein Echtzeit-Schatten)
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(pw * 1.22, ph * 1.2), new THREE.MeshBasicMaterial({ map: sTex, transparent: true, depthWrite: false, opacity: 0.8 }));
     sh.position.copy(panel.position).addScaledVector(normal, -0.015); sh.position.y -= ph * 0.03; sh.rotation.y = w.rotY; root.add(sh);
-    // Werklicht: neutral weiß, Kegel knapp größer als das Werk (nie farbig)
-    const lp = panel.position.clone().addScaledVector(normal, 1.0); lp.y = Math.min(w.y + 2.4, w.level === 'empore' ? 9.5 : 11.5);
-    const spot = new THREE.SpotLight(0xffffff, w.nr === 302 ? 9 : 3.0, 0, Math.min(0.6, Math.atan((Math.max(pw, ph) * 0.7 + 0.25) / lp.distanceTo(panel.position))), 0.72, 1.0);
-    spot.position.copy(lp); const tgt = new THREE.Object3D(); tgt.position.copy(panel.position); scene.add(tgt); spot.target = tgt; scene.add(spot);
+    // vorgetäuschter Lichtkegel an der Wand (additiver Fleck – ersetzt den Werk-Spot)
+    workGlow(panel.position, normal, Math.max(pw * 1.7, 0.9), Math.max(ph * 1.5, 1.3), w.rotY);
   }
   function lazyLoad(camera, all = false) {
     let budget = all ? 999 : 3;
     for (const it of lazy) { if (it.loaded || budget <= 0) continue;
       if (!all) { vtmp.copy(it.panel.position); if (vtmp.distanceTo(camera.position) > 16) continue; }
       it.loaded = true; budget--;
-      texLoader.load(BASE + 'works/' + it.w.slug + '.webp', tx => { tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = aniso; tx.generateMipmaps = true; tx.minFilter = THREE.LinearMipmapLinearFilter; it.face.map = tx; it.face.color.set(0xffffff); it.face.needsUpdate = true; });
+      texLoader.load(BASE + 'works/' + it.w.slug + '.webp', tx => { tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = aniso; tx.generateMipmaps = true; tx.minFilter = THREE.LinearMipmapLinearFilter;
+        it.face.map = tx; it.face.color.set(0xffffff);
+        it.face.emissiveMap = tx; it.face.emissive.set(0xffffff); it.face.emissiveIntensity = it.w.nr === 302 ? 0.95 : 0.72;
+        it.face.needsUpdate = true; });
     }
   }
 
@@ -266,12 +315,9 @@ function buildSideWall(root, x, face, wallMat, brickMat, darkWoodMat, scene, qua
       new THREE.MeshStandardMaterial({ map: gtex, emissive: 0xffffff, emissiveMap: gtex, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0, side: THREE.DoubleSide }));
     glass.rotation.y = face > 0 ? Math.PI / 2 : -Math.PI / 2; glass.position.set(x + face * 0.02, (ya + yb) / 2, zc); root.add(glass);
     for (const dz of [-WIN_W / 2, WIN_W / 2]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, hh, 0.12), brickMat); m.position.set(x, (ya + yb) / 2, zc + dz); root.add(m); }
-    const ral = new THREE.RectAreaLight(0xf3e0c4, 1.6, WIN_W + 0.3, hh); ral.position.set(x + face * 0.1, (ya + yb) / 2, zc); ral.lookAt(x + face * 3, (ya + yb) / 2, zc); scene.add(ral);
   }
-  // kräftige farbige Lichtflecken auf Boden/Bänke/Säulen (Mitte), nie auf die Werke (Wände)
-  for (const zc of WIN_ZC) { const col = GLASS_COLORS[(Math.round(zc) + (face > 0 ? 0 : 3)) % GLASS_COLORS.length];
-    const sp = new THREE.SpotLight(col, 4.5, 0, 0.32, 0.6, 1.0); sp.position.set(x + face * 0.3, WIN_HI[1] - 0.5, zc);
-    sp.target.position.set(10 - face * 1.5, 0, zc + 1.5); scene.add(sp.target); scene.add(sp); }
+  // Die Bleiglas-Scheiben leuchten selbst (emissiv); farbige Bodenflecken setzt buildGallery
+  // als additive Flächen (keine echten Lichter mehr).
 }
 
 // ---- Kapelle (Box, zum Schiff offen, 2 Fenster an der Außenwand) ----
@@ -291,8 +337,8 @@ function buildChapel(root, box, side, wallMat, brickMat, darkWoodMat, scene, qua
     gtex.colorSpace = THREE.SRGBColorSpace;
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.2, yb - ya),
       new THREE.MeshStandardMaterial({ map: gtex, emissive: 0xffffff, emissiveMap: gtex, emissiveIntensity: 0.85, roughness: 0.4, metalness: 0, side: THREE.DoubleSide }));
-    glass.rotation.y = Math.PI / 2; glass.position.set(xOuter + (face > 0 ? 0.02 : -0.02), (ya + yb) / 2, zc); root.add(glass);
-    const ral = new THREE.RectAreaLight(0xf3e0c4, 1.6, 1.4, yb - ya); ral.position.set(xOuter + (face > 0 ? 0.1 : -0.1), (ya + yb) / 2, zc); ral.lookAt(xOuter + face * 3, (ya + yb) / 2, zc); scene.add(ral); }
+    glass.rotation.y = Math.PI / 2; glass.position.set(xOuter + (face > 0 ? 0.02 : -0.02), (ya + yb) / 2, zc); root.add(glass); }
+  // Kapellenfenster leuchten selbst (emissiv) – keine eigenen Lichter mehr.
 }
 
 function railing(root, mat, axis, at, a, b, y) {

@@ -1,5 +1,5 @@
 // ============================================================================
-//  DOM-UI: Startschirm, Verkaufs-Infotafel, Lupe, Hinweis, Raumleiste, Laden.
+//  DOM-UI: Startschirm, Verkaufs-Infotafel, Lupe, Bedienhilfe, Raumleiste, Laden.
 // ============================================================================
 const cm = mm => (mm / 10).toLocaleString('de-DE');
 const eur = n => n.toLocaleString('de-DE') + ' €';

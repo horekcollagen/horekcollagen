@@ -20,9 +20,11 @@ function detectQuality() {
   const mobile = matchMedia('(pointer:coarse)').matches || innerWidth < 820;
   const lowMem = navigator.deviceMemory && navigator.deviceMemory <= 4;
   const low = mobile || lowMem;
+  // Keine Echtzeit-Schatten, Pixeldichte max 1,5, kein GTAO-Composer – Last liegt sonst
+  // komplett am Fragment-Shader. Lichtkegel/Fensterflecken sind vorgetäuscht (Texturen).
   return low
-    ? { tier: 'low', pr: 1.5, shadows: false, shadowMap: 1024, floorRough: 0.42, spotIntensity: 5.5, reflectiveFloor: false, ao: false }
-    : { tier: 'high', pr: 2, shadows: true, shadowMap: 2048, floorRough: 0.3, spotIntensity: 6.0, reflectiveFloor: true, ao: true };
+    ? { tier: 'low', pr: 1.25, shadows: false, shadowMap: 1024, floorRough: 0.42, reflectiveFloor: false, ao: false }
+    : { tier: 'high', pr: 1.5, shadows: false, shadowMap: 2048, floorRough: 0.3, reflectiveFloor: false, ao: false };
 }
 const quality = detectQuality();
 

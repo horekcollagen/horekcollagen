@@ -17,17 +17,22 @@ function mk(w, x, y, z, dir) {
     x, y, z, rotY: rot[dir], normal: N[dir] };
 }
 
-// Shelf-Packer für die dichte Bildwand (ein Block in Rechteck [x0,x1], Mitte yMid).
+// Dichter Salon-Block (Bildwand): ~quadratischer, kompakter Block um (Mitte, yMid),
+// nicht zwei breite Reihen. Zielreihenzahl ≈ √n -> mehrere enge Reihen, 8–10 cm Abstand.
 function packBlock(list, x0, x1, yMid, dir, z, gap = 0.09) {
-  const W = x1 - x0; const rows = []; let row = [], rw = 0, rh = 0;
+  const n = list.length, cx = (x0 + x1) / 2;
+  const totalW = list.reduce((s, w) => s + w.breite_cm / 100, 0) + gap * (n - 1);
+  const R = Math.max(1, Math.round(Math.sqrt(n)));         // 16 -> 4 Reihen, 15 -> 4
+  const target = Math.min(x1 - x0, totalW / R);            // Zielbreite je Reihe (dicht)
+  const rows = []; let row = [], rw = 0, rh = 0;
   for (const w of list) { const bw = w.breite_cm / 100, bh = w.hoehe_cm / 100;
-    if (row.length && rw + gap + bw > W) { rows.push({ items: row, w: rw, h: rh }); row = []; rw = 0; rh = 0; }
+    if (row.length && rw + gap + bw > target) { rows.push({ items: row, w: rw, h: rh }); row = []; rw = 0; rh = 0; }
     row.push({ w, bw, bh }); rw += (row.length > 1 ? gap : 0) + bw; rh = Math.max(rh, bh); }
   if (row.length) rows.push({ items: row, w: rw, h: rh });
   const totalH = rows.reduce((s, r) => s + r.h, 0) + gap * (rows.length - 1);
-  let y = yMid + totalH / 2;                 // oben beginnen
+  let y = yMid + totalH / 2;                 // oben beginnen, Block um yMid zentriert
   const out = [];
-  for (const r of rows) { y -= r.h / 2; let x = x0 + (W - r.w) / 2;   // Reihe zentrieren
+  for (const r of rows) { y -= r.h / 2; let x = cx - r.w / 2;   // jede Reihe auf Blockmitte zentrieren
     for (const it of r.items) { x += it.bw / 2; out.push(mk(it.w, x, y, z, dir)); x += it.bw / 2 + gap; }
     y -= r.h / 2 + gap; }
   return out;

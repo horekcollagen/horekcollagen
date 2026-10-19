@@ -15,7 +15,9 @@ export const EMP = { y: 5, rail: 1.1,
   left:  { xL: 4, xR: 7,  zF: 8,  zN: 26 },
   right: { xL: 13, xR: 16, zF: 8, zN: 26 },
   eye: 6.6 };
-export const STAIRS = { xL: 11.3, xR: 12.8, zBottom: 35.5, zTop: 32.0, yTop: 5, steps: 18 };
+// Treppe steigt im hinteren Schiff (unter der Westempore) durch ein Treppenloch
+// in der Emporenplatte hinauf: Fuß bei z=zBottom (y0), Kopf bei z=zTop (y5).
+export const STAIRS = { xL: 11.0, xR: 13.0, zBottom: 30.9, zTop: 27.0, yTop: 5, steps: 16 };
 export const BILDWAND = { z: 6.3, H: 4.5, openX0: 8.8, openX1: 11.2, openH: 3.2,
   left: { xL: 4.6, xR: 8.8 }, right: { xL: 11.2, xR: 15.4 } };
 export const PODIUM = { x: 10, z: 2.9, w: 2.0, d: 0.7, h: 0.8 };
@@ -39,7 +41,9 @@ export const GROUND = [
 ];
 // Begehbare Flächen Ebene 1 (Emporen, U-Form).
 export const UPPER = [
-  { xL: 4.4, xR: 15.6, zF: 26.4, zN: 30.6 },   // Westempore
+  { xL: 4.4, xR: 10.8, zF: 26.4, zN: 30.6 },   // Westempore links vom Treppenloch
+  { xL: 13.2, xR: 15.6, zF: 26.4, zN: 30.6 },  // Westempore rechts vom Treppenloch
+  { xL: 10.8, xR: 13.2, zF: 26.4, zN: 27.0 },  // Streifen vor dem Treppenloch
   { xL: 4.4, xR: 6.6,  zF: 8.4, zN: 26.6 },    // linke Seitenempore
   { xL: 13.4, xR: 15.6, zF: 8.4, zN: 26.6 },   // rechte Seitenempore
 ];

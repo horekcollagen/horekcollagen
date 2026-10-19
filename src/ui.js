@@ -83,11 +83,11 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
     openPanel(w) {
       preloadHires(w);
       panel.querySelector('.ptitle').textContent = w.title;
-      panel.querySelector('.pyear').textContent = w.year;
+      panel.querySelector('.pyear').textContent = (w.year != null && w.year !== '') ? (w.year + ' · ') : '';
       panel.querySelector('.pdim').textContent = (w.approx === false ? '' : 'ca. ') + cm(w.h) + ' × ' + cm(w.b) + ' cm';
       const pt = panel.querySelector('.ptext');
       if (w.text && w.text.trim()) { pt.textContent = w.text; pt.hidden = false; } else { pt.hidden = true; }
-      panel.querySelector('.pprice').textContent = eur(w.price);
+      panel.querySelector('.pprice').textContent = (w.price != null && w.price !== '') ? eur(w.price) : 'Preis auf Anfrage';
       panel.querySelector('#askOrig').href = mailto('Original', w.title);
       panel.querySelector('#askPrint').href = mailto('Druck', w.title);
       panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false');

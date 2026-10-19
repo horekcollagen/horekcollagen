@@ -302,6 +302,9 @@ export function buildGallery(renderer, quality, works = []) {
     const normal = new THREE.Vector3(...w.normal);
     panel.userData = { work: w, center: panel.position.clone(), normal };
     root.add(panel); worksMeshes.push(panel); lazy.push({ panel, face, w, loaded: false });
+    // Sammelwand (Zone 8): dichte Petersburger Hängung, gleichmäßig beleuchtet –
+    // kein Einzel-Schlagschatten und kein Einzel-Lichtkegel (Tempo + Optik).
+    if (w.curved) continue;
     // weicher Schlagschatten (gefälscht, kein Echtzeit-Schatten)
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(pw * 1.22, ph * 1.2), new THREE.MeshBasicMaterial({ map: sTex, transparent: true, depthWrite: false, opacity: 0.8 }));
     sh.position.copy(panel.position).addScaledVector(normal, -0.015); sh.position.y -= ph * 0.03; sh.rotation.y = w.rotY; root.add(sh);

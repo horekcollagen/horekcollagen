@@ -22,6 +22,13 @@ export const BILDWAND = { z: 6.3, H: 4.5, openX0: 8.8, openX1: 11.2, openH: 3.2,
   left: { xL: 4.6, xR: 8.8 }, right: { xL: 11.2, xR: 15.4 } };
 export const PODIUM = { x: 10, z: 2.9, w: 2.0, d: 0.7, h: 0.8 };
 
+// Sammelwand: dichte Petersburger Hängung auf der runden Apsiswand (Trommel r=5,
+// Mitte x10/z5, θ∈[π/2,3π/2]). Werke sitzen knapp vor der Wand (rHang), von 40 cm
+// über dem Boden bis 20 cm unter den Kuppelansatz (drumH 6.5). Um Garten Eden (auf
+// dem Podest, 120 cm breit, Oberkante ~2,6 m) bleibt ein freier Rand ≥1 m.
+export const APSE_HANG = { rHang: 4.9, vBottom: 0.4, vTop: 6.3, thetaMargin: 0.07,
+  gap: 0.08, drumH: 6.5, gartenEdenClear: 1.0, gartenEdenW: 1.2, gartenEdenTop: 2.6 };
+
 // Fenster: Seitenwände (x=4 links, x=16 rechts) + Kapellen (x=0 / x=20).
 // zC = Mitte längs, w = Breite (längs). Je unteres (yLo) + oberes (yHi) Fenster.
 export const WIN_ZC = [7.25, 10.75, 20.75, 24.25];  // Mitten der 4 Fensterpaare

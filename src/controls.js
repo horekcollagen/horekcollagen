@@ -132,10 +132,14 @@ export class Controls {
     const wk = mesh.userData.work, c = mesh.userData.center, n = mesh.userData.normal;
     this.level = wk.level === 'empore' ? 1 : 0;   // Klick auf Emporenwerk von unten -> hoch
     const pw = wk.b / 1000, ph = wk.h / 1000;
+    // Hoch hängendes Werk (>2,5 m, z. B. Sammelwand): Infotafel sofort, ohne hinzulaufen –
+    // nur der Blick dreht sich zum Werk, die Position bleibt.
+    const high = c.y > 2.5;
     const dist = Math.min(3.6, Math.max(0.9, Math.max(pw, ph) * 1.5 + 0.5));
-    const to = c.clone().addScaledVector(n, dist); to.y = Math.min(Math.max(c.y, 1.3), EMP.eye + 0.5);
+    const to = high ? this.cam.position.clone() : c.clone().addScaledVector(n, dist);
+    if (!high) to.y = Math.min(Math.max(c.y, 1.3), EMP.eye + 0.5);
     this.focus = mesh; this.walk = null;
-    this.anim = { from: this.cam.position.clone(), to, look: c.clone(), t: 0, dur: 0.75, onDone: () => { this.mode = 'atWork'; this.ui.openPanel(wk); } };
+    this.anim = { from: this.cam.position.clone(), to, look: c.clone(), t: 0, dur: high ? 0.4 : 0.75, onDone: () => { this.mode = 'atWork'; this.ui.openPanel(wk); } };
     this.mode = 'move';
     if (history.replaceState) history.replaceState(null, '', '?werk=' + wk.nr);
   }

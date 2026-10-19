@@ -11,9 +11,14 @@ import { buildGallery } from './scene.js';
 import { Controls } from './controls.js';
 import { createUI } from './ui.js';
 import { RAW } from './works.js';
+import { RAW_SAMMELWAND } from './works_sammelwand.js';
 import { hangAll } from './hang.js';
+import { hangSammelwand } from './hang_sammelwand.js';
 
-const WORKS = hangAll(RAW);
+const sammel = hangSammelwand(RAW_SAMMELWAND);
+const WORKS = [...hangAll(RAW), ...sammel.works, ...sammel.bildwand];
+const TOTAL = RAW.length + RAW_SAMMELWAND.length;   // 351
+if (sammel.bildwand.length) console.info('Sammelwand: Apsis', sammel.works.length, '+ Bildwand', sammel.bildwand.length);
 
 // ---- Qualitätsstufe (Mittelklasse-Handy -> runter) ----
 function detectQuality() {

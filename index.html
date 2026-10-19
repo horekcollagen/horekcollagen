@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>HOREK – Collagen auf Holz</title>
-<meta name="description" content="Virtueller Rundgang durch drei Räume mit Collagen von HOREK in Originalgröße.">
+<meta name="description" content="Virtueller Rundgang durch eine Kirche: 76 Collagen von HOREK in Originalgröße.">
+<meta property="og:title" content="HOREK – Collagen auf Holz">
+<meta property="og:description" content="Virtueller Rundgang durch eine Kirche: 76 Collagen von HOREK in Originalgröße.">
 <style>
   :root{ --ink:#f3efe7; --muted:#b4ac9d; --line:#3a352d; }
   *{box-sizing:border-box}
@@ -50,6 +52,8 @@
     border-left:1px solid var(--line);padding:40px 26px;display:flex;flex-direction:column;gap:14px;
     transform:translateX(102%);transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   #panel.open{transform:translateX(0)}
+  /* Solange die Infotafel offen ist: Raumleiste und Bedienzeile ausblenden (kein Überlappen) */
+  body.panel-open #rooms, body.panel-open #hint{display:none!important}
   #panel .ptitle{font-size:22px;font-weight:700;line-height:1.25;margin:0}
   #panel .pmeta{color:var(--muted);font-size:15px}
   #panel .pdim{font-size:16px;color:#e7e1d6;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0}

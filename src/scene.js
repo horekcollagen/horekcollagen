@@ -141,13 +141,14 @@ export function buildGallery(renderer, quality, works = []) {
   // weiches Apsislicht (Garten Eden bleibt das hellste Werk)
   const apseFill = new THREE.PointLight(0xffe9cf, 8, 14, 1.2); apseFill.position.set(APSE.cx, 4.2, 3.0); scene.add(apseFill);
 
-  // ---------------- Nave-Decke: dunkle Fläche mit sichtbaren Holzbalken ----------------
+  // ---------------- Nave-Decke: helle Kassettenfelder + dunkle Holzbalken ----------------
+  // Felder weiß gekalkt + leicht selbstleuchtend (nie schwarz); Balken bleiben dunkles Holz.
   // Deckt auch die Apsisbucht (z0–5) ab, damit über der Kuppel kein Hintergrund durchblitzt.
-  const darkCeilMat = new THREE.MeshStandardMaterial({ color: 0x251c13, roughness: 0.92 });
-  box(NAVE.xR - NAVE.xL + 0.4, 0.3, NAVE.zEnd + 0.4, darkCeilMat, 10, NAVE.H + 0.05, (NAVE.zEnd + 0.2) / 2);
-  // breiter Deckel über der Apsisbucht/Chorzone (über der Kuppel, von innen unsichtbar):
-  // schließt die schrägen Eckblicke seitlich an der Apsis vorbei.
-  box(20, 0.3, 8, darkCeilMat, 10, NAVE.H + 0.04, 3);
+  const ceilFieldMat = new THREE.MeshStandardMaterial({ color: 0xe7e1d5, roughness: 0.96, emissive: 0xffffff, emissiveIntensity: 0.12 });
+  box(NAVE.xR - NAVE.xL + 0.4, 0.3, NAVE.zEnd + 0.4, ceilFieldMat, 10, NAVE.H + 0.05, (NAVE.zEnd + 0.2) / 2);
+  // breiter Deckel über der Apsisbucht/Chorzone (über der Kuppel): schließt die schrägen
+  // Eckblicke seitlich an der Apsis vorbei; etwas höher, damit die Nave-Decke davor liegt.
+  box(20, 0.3, 8, ceilFieldMat, 10, NAVE.H + 0.14, 3);
   for (let z = NAVE.zApse + 1.75; z < NAVE.zEnd; z += 2.5) box(NAVE.xR - NAVE.xL, 0.42, 0.28, ceilWoodMat, 10, NAVE.H - 0.22, z);            // Querbalken
   for (const x of [5.5, 8, 10, 12, 14.5]) box(0.24, 0.32, NAVE.zEnd - NAVE.zApse, darkWoodMat, x, NAVE.H - 0.16, (NAVE.zApse + NAVE.zEnd) / 2); // Längsbalken
 
@@ -165,7 +166,7 @@ export function buildGallery(renderer, quality, works = []) {
   // Vorhallenwände
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xL, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
   box(0.25, VEST.H, VEST.zN - VEST.zF, wallMat, VEST.xR, VEST.H / 2, (VEST.zF + VEST.zN) / 2);
-  box(VEST.xR - VEST.xL + 0.3, 0.2, VEST.zN - VEST.zF + 0.3, ceilWoodMat, 10, VEST.H, (VEST.zF + VEST.zN) / 2); // Decke Vorhalle (waagerecht)
+  box(VEST.xR - VEST.xL + 0.3, 0.2, VEST.zN - VEST.zF + 0.3, ceilFieldMat, 10, VEST.H, (VEST.zF + VEST.zN) / 2); // Decke Vorhalle (weiß, waagerecht)
   // Eingangswand z=36 mit Tür
   const dW = VEST.doorW, dH = 2.6;
   box((10 - dW / 2) - VEST.xL, VEST.H, 0.3, wallMat, (VEST.xL + (10 - dW / 2)) / 2, VEST.H / 2, VEST.zN); // links

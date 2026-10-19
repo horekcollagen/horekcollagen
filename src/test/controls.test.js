@@ -1,12 +1,10 @@
 // ============================================================================
 //  Steuerungstest (ohne Browser, reine Mathematik) – prüft die RICHTUNG so,
 //  wie sie sich auf dem Schirm anfühlt, nicht nur ob sich etwas ändert.
-//  Operative Definition (aus Run 4):
-//    Ziehen nach rechts  -> ein Werk RECHTS der Bildmitte rückt näher zur Mitte
-//                           (der Blick dreht nach rechts, das Bild wandert nach links).
-//    Ziehen nach oben    -> ein Werk ÜBER der Bildmitte rückt näher zur Mitte
-//                           (der Blick dreht nach oben).
-//    Pfeiltaste hoch = vorwärts (-z), runter = rückwärts (+z).
+//  Operative Definition (Greif-Stil, Run 5 – „das Bild folgt der Hand"):
+//    Ziehen nach LINKS -> ein Werk RECHTS der Bildmitte rückt näher zur Mitte.
+//    Ziehen nach UNTEN -> ein Werk ÜBER der Bildmitte rückt näher zur Mitte.
+//    (dasselbe gespiegelt für links/oben.)  Pfeiltaste/WASD unverändert: hoch = vorwärts.
 //      node src/test/controls.test.js   (oder: npm test)
 // ============================================================================
 import assert from 'node:assert/strict';
@@ -44,44 +42,45 @@ check('yaw=0 blickt nach -z (forward ~ (0,-1))', () => {
   assert.ok(Math.abs(f.x) < 1e-9 && Math.abs(f.z + 1) < 1e-9, `forward(0)=${JSON.stringify(f)}`);
 });
 
-// --- RICHTUNG Maus: Ziehen nach rechts -> Werk rechts der Mitte rückt zur Mitte ---
-check('Ziehen nach rechts: Werk rechts der Mitte rückt näher zur Mitte (Blick dreht nach rechts)', () => {
+// --- RICHTUNG Maus (Greif-Stil, „das Bild folgt der Hand"): horizontal ---
+check('Ziehen nach LINKS: Werk rechts der Mitte rückt näher zur Mitte (Raum folgt nach links)', () => {
   const P = { x: 2, z: -5 };                 // 5 m voraus, 2 m rechts
   const before = screenX(0, P);
   assert.ok(before > 0, `Werk muss rechts der Mitte starten: ${before}`);
-  const after = screenX(applyLook(S(), +120, 0).yaw, P);
-  assert.ok(after < before - 1e-6, `muss zur Mitte wandern (kleiner werden): ${before} -> ${after}`);
-  assert.ok(after > -1e-9 || after < before, 'wandert Richtung Mitte/links');
-});
-
-check('Ziehen nach links: Werk links der Mitte rückt näher zur Mitte (Blick dreht nach links)', () => {
-  const P = { x: -2, z: -5 };
-  const before = screenX(0, P);
-  assert.ok(before < 0, `Werk muss links starten: ${before}`);
-  const after = screenX(applyLook(S(), -120, 0).yaw, P);
-  assert.ok(after > before + 1e-6, `muss zur Mitte wandern (größer werden): ${before} -> ${after}`);
-});
-
-// --- RICHTUNG Maus: Ziehen nach oben -> Werk über der Mitte rückt zur Mitte ---
-check('Ziehen nach oben (dy<0): Werk über der Mitte rückt näher zur Mitte (Blick dreht nach oben)', () => {
-  const P = { y: 2, z: -5 };
-  const before = screenY(0, P);
-  assert.ok(before > 0, `Werk muss oben starten: ${before}`);
-  const after = screenY(applyLook(S(), 0, -120).pitch, P);
+  const after = screenX(applyLook(S(), -120, 0).yaw, P);   // Ziehen nach links
   assert.ok(after < before - 1e-6, `muss zur Mitte wandern: ${before} -> ${after}`);
 });
 
-check('Ziehen nach unten (dy>0): Werk unter der Mitte rückt näher zur Mitte (Blick dreht nach unten)', () => {
+check('Ziehen nach RECHTS: Werk links der Mitte rückt näher zur Mitte (Raum folgt nach rechts)', () => {
+  const P = { x: -2, z: -5 };
+  const before = screenX(0, P);
+  assert.ok(before < 0, `Werk muss links starten: ${before}`);
+  const after = screenX(applyLook(S(), +120, 0).yaw, P);   // Ziehen nach rechts
+  assert.ok(after > before + 1e-6, `muss zur Mitte wandern: ${before} -> ${after}`);
+});
+
+// --- RICHTUNG Maus (Greif-Stil): vertikal ---
+check('Ziehen nach UNTEN: Werk über der Mitte rückt näher zur Mitte (Raum folgt nach unten)', () => {
+  const P = { y: 2, z: -5 };
+  const before = screenY(0, P);
+  assert.ok(before > 0, `Werk muss oben starten: ${before}`);
+  const after = screenY(applyLook(S(), 0, +120).pitch, P);  // Ziehen nach unten (dy>0)
+  assert.ok(after < before - 1e-6, `muss zur Mitte wandern: ${before} -> ${after}`);
+});
+
+check('Ziehen nach OBEN: Werk unter der Mitte rückt näher zur Mitte (Raum folgt nach oben)', () => {
   const P = { y: -2, z: -5 };
   const before = screenY(0, P);
   assert.ok(before < 0, `Werk muss unten starten: ${before}`);
-  const after = screenY(applyLook(S(), 0, +120).pitch, P);
+  const after = screenY(applyLook(S(), 0, -120).pitch, P);  // Ziehen nach oben (dy<0)
   assert.ok(after > before + 1e-6, `muss zur Mitte wandern: ${before} -> ${after}`);
 });
 
 check('Pitch ist begrenzt (kein Überschlag)', () => {
-  const p = applyLook(S(), 0, -100000).pitch;
-  assert.ok(Math.abs(p) <= CFG.maxPitch + 1e-9 && p > 0, `pitch geklemmt: ${p}`);
+  const pUp = applyLook(S(), 0, -100000).pitch;     // extrem ziehen nach oben
+  const pDn = applyLook(S(), 0, +100000).pitch;      // extrem ziehen nach unten
+  assert.ok(Math.abs(pUp) <= CFG.maxPitch + 1e-9 && Math.abs(pDn) <= CFG.maxPitch + 1e-9, `pitch geklemmt: ${pUp}/${pDn}`);
+  assert.ok(Math.abs(Math.abs(pUp) - CFG.maxPitch) < 1e-9, 'erreicht die Grenze');
 });
 
 // --- Pfeiltasten: hoch = vorwärts (-z), runter = rückwärts (+z) ---

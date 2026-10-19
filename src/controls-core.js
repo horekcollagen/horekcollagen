@@ -25,13 +25,14 @@ export function clampPitch(p, m = CFG.maxPitch) {
   return Math.max(-m, Math.min(m, p));
 }
 
-// Ziehen: dx>0 (nach rechts) -> nach rechts schauen (yaw sinkt).
-//         dy<0 (nach oben)   -> nach oben schauen (pitch steigt).
+// Greif-Stil ("das Bild folgt der Hand"):
+//   dx>0 (Ziehen nach rechts) -> Raum wandert nach rechts, Blick dreht nach LINKS (yaw steigt).
+//   dy<0 (Ziehen nach oben)   -> Raum wandert nach oben, Blick SENKT sich (pitch sinkt).
 export function applyLook(state, dx, dy, sens = CFG.lookSens) {
   return {
     ...state,
-    yaw: state.yaw - dx * sens,
-    pitch: clampPitch(state.pitch - dy * sens),
+    yaw: state.yaw + dx * sens,
+    pitch: clampPitch(state.pitch + dy * sens),
   };
 }
 

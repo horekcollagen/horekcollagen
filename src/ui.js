@@ -76,8 +76,9 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
       panel.querySelector('#askOrig').href = mailto('Original', w.title);
       panel.querySelector('#askPrint').href = mailto('Druck', w.title);
       panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('panel-open');   // Raumleiste + Bedienzeile ausblenden
     },
-    closePanel() { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); },
+    closePanel() { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); document.body.classList.remove('panel-open'); },
     setRoom(n) {
       if (n === curRoom) return; curRoom = n;
       rooms.querySelectorAll('button[data-station]').forEach(b => b.classList.toggle('on', b.dataset.station === String(n)));

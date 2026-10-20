@@ -1,6 +1,7 @@
 // ============================================================================
 //  QR-Codes pro Werk (SVG + PNG) + druckbare Übersicht. Lokal, ohne Online.
-//  Quelle: src/werke_kirche.json.   Aufruf: node tools/qr.js  (npm run qr)
+//  Quellen: src/werke_kirche.json (76) + src/werke_sammelwand.json (275) = 351.
+//  Aufruf: node tools/qr.js  (npm run qr)
 // ============================================================================
 import QRCode from 'qrcode';
 import fs from 'node:fs';
@@ -10,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(ROOT, '..', 'qr');
 const SITE = 'https://galerie.horekcollagen.de';
-const works = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'src', 'werke_kirche.json'), 'utf8'))
+const read = f => JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'src', f), 'utf8'));
+const works = [...read('werke_kirche.json'), ...read('werke_sammelwand.json')]
   .sort((a, b) => a.nr - b.nr);
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 
@@ -25,9 +27,11 @@ for (const w of works) {
   await QRCode.toFile(path.join(OUT, `${w.nr}.svg`), url, { ...opts, type: 'svg', width: 600 });
   await QRCode.toFile(path.join(OUT, `${w.nr}.png`), url, { ...opts, type: 'png', width: 1000 });
   const svg = fs.readFileSync(path.join(OUT, `${w.nr}.svg`), 'utf8');
+  const jahr = (w.jahr != null && w.jahr !== '') ? `${w.jahr} · ` : '';
+  const preis = (w.preis_eur != null && w.preis_eur !== '') ? eur(w.preis_eur) : 'Preis auf Anfrage';
   cards.push(`<article class="card"><div class="qr">${svg}</div>
-    <h2>${w.titel}</h2><div class="meta">${w.jahr} · Collage auf Holz, Unikat</div>
-    <div class="meta">${mass(w)}</div><div class="price">${eur(w.preis_eur)}</div>
+    <h2>${w.titel}</h2><div class="meta">${jahr}Collage auf Holz, Unikat</div>
+    <div class="meta">${mass(w)}</div><div class="price">${preis}</div>
     <div class="url">galerie.horekcollagen.de/?werk=${w.nr}</div></article>`);
 }
 

@@ -83,7 +83,9 @@ const clock = new THREE.Clock();
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (started) { controls.update(dt); gallery.lazyLoad(camera); }
+  // Solange die Großansicht offen ist, steht der Raum still (kein Update/Render) – schont den Akku.
+  if (!started || controls.roomFrozen) return;
+  controls.update(dt); gallery.lazyLoad(camera);
   if (composer) composer.render(); else renderer.render(scene, camera);
 }
 loop();

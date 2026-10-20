@@ -67,6 +67,19 @@
   #panel .back:hover{color:#efe9dd}
   #panel .ptext{font-size:14px;line-height:1.55;color:#c9c2b5;margin:2px 0 0}
   #panel .pprice{font-size:21px;font-weight:700;color:#f3efe7;margin-top:4px}
+  /* Großansicht: abgedunkelter Raum + Bild, das von der Wand in die 2D-Ansicht fliegt */
+  #zoomback{position:fixed;inset:0;z-index:23;background:#080706;opacity:0;transition:opacity .4s;pointer-events:none}
+  body.zoom-open #zoomback{opacity:.93;pointer-events:auto}
+  #zoomimg{position:fixed;z-index:24;display:none;object-fit:contain;background:#15120f;
+    box-shadow:0 14px 60px rgba(0,0,0,.6);
+    transition:left .4s cubic-bezier(.2,.7,.2,1),top .4s cubic-bezier(.2,.7,.2,1),width .4s cubic-bezier(.2,.7,.2,1),height .4s cubic-bezier(.2,.7,.2,1),opacity .3s}
+  body.zoom-open #zoomimg{display:block}
+  /* Handy: Bild oben über die volle Breite, Infotafel als Blatt darunter */
+  @media (max-width:759px){
+    body.zoom-open #panel{top:auto;bottom:0;height:auto;max-height:48vh;width:100%;border-left:0;
+      border-top:1px solid var(--line);padding:18px 20px calc(18px + env(safe-area-inset-bottom));transform:translateY(102%)}
+    body.zoom-open #panel.open{transform:translateY(0)}
+  }
   @media (max-width:560px){
     #panel{width:100%;border-left:0;padding:28px 20px calc(20px + env(safe-area-inset-bottom))}
     #hint{bottom:70px;white-space:normal;text-align:center;max-width:90vw;line-height:1.35;border-radius:14px}

@@ -16,7 +16,7 @@ export class Controls {
     this.state = { yaw: s0.yaw, pitch: 0, x: s0.x, z: s0.z };
     this.level = s0.level; this.stationIdx = 0;
     this.keys = new Set(); this.mode = 'free';
-    this.focus = null; this.anim = null; this.walk = null;
+    this.focus = null; this.anim = null; this.walk = null; this.roomFrozen = false;
     this.ray = new THREE.Raycaster(); this.ndc = new THREE.Vector2();
     this.groundFloors = (gallery.floors || []).filter(f => f.userData.floor);
     this.upperFloors = gallery.upperFloors || [];
@@ -41,20 +41,16 @@ export class Controls {
   _bind() {
     const el = this.dom; let dragging = false, lx = 0, ly = 0, moved = 0;
     el.addEventListener('pointerdown', e => {
-      if (this.mode === 'atWork') { if (e.pointerType === 'touch') { this._lensDown = true; this._lensMove(e); } return; }
       if (this.mode !== 'free') return; dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; this._hideRing(); el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', e => {
-      if (this.mode === 'atWork') { this._lensMove(e); return; }   // Hover-Lupe über dem Werk
       if (dragging) { const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy); const r = applyLook(this.state, dx, dy); this.state.yaw = r.yaw; this.state.pitch = r.pitch; return; }
       if (this.mode === 'free' && e.pointerType !== 'touch') this._hover(e);   // Landering beim Überfahren (Maus)
     });
-    el.addEventListener('pointerleave', () => { this._hideRing(); this.ui.hideLens(); });
+    el.addEventListener('pointerleave', () => this._hideRing());
     el.addEventListener('pointerup', e => {
-      if (this.mode === 'atWork') { if (e.pointerType === 'touch') { this._lensDown = false; this.ui.hideLens(); } return; }
       if (!dragging) return; dragging = false; try { el.releasePointerCapture(e.pointerId); } catch (_) {} if (moved < 9) { this._setNdc(e); this._click(); } this._hideRing();
     });
-    el.addEventListener('pointercancel', () => { if (this.mode === 'atWork') { this._lensDown = false; this.ui.hideLens(); } });
     const map = { arrowup: 'fwd', w: 'fwd', arrowdown: 'back', s: 'back', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'shift' };
     addEventListener('keydown', e => { if (this.mode !== 'free') return; const k = e.key.toLowerCase(); if (!(k in map)) return; if (k.startsWith('arrow')) e.preventDefault(); this.keys.add(map[k]); this.walk = null; });
     addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k in map) this.keys.delete(map[k]); });
@@ -82,22 +78,35 @@ export class Controls {
     const c = mesh.userData.center, n = mesh.userData.normal, lvl = mesh.userData.work.level === 'empore' ? 1 : 0;
     return this.clampToRegion(lvl === 1 ? UPPER : GROUND, c.x + n.x * 1.4, c.z + n.z * 1.4);
   }
-  // Hover-Lupe: Werk unter dem Zeiger abtasten (UV) und die Lupe an der UI anstoßen.
-  _lensMove(e) {
-    if (this.mode !== 'atWork' || !this.focus) return;
-    const touch = e.pointerType === 'touch';
-    if (touch && !this._lensDown) return;            // Handy: nur mit aufgelegtem Finger
-    this._setNdc(e);
-    this.ray.setFromCamera(this.ndc, this.cam);
-    const hit = this.ray.intersectObject(this.focus, false)[0];
-    if (!hit || !hit.uv) { this.ui.hideLens(); return; }
-    this.ui.lens(e.clientX, e.clientY, hit.uv.x, hit.uv.y, this._workScreenWidth(), touch);
+  // Bildschirm-Rechteck des Werks (4 Ecken projizieren) – Startpunkt der Großansicht.
+  _workScreenRect(mesh) {
+    const c = mesh.userData.center, n = mesh.userData.normal, pw = mesh.userData.work.b / 1000, ph = mesh.userData.work.h / 1000;
+    const right = new THREE.Vector3(n.z, 0, -n.x).multiplyScalar(pw / 2), up = new THREE.Vector3(0, ph / 2, 0);
+    const rct = this.dom.getBoundingClientRect();
+    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const p = c.clone().addScaledVector(right, sx).addScaledVector(up, sy).project(this.cam);
+      const x = rct.left + (p.x + 1) / 2 * rct.width, y = rct.top + (1 - p.y) / 2 * rct.height;
+      minx = Math.min(minx, x); miny = Math.min(miny, y); maxx = Math.max(maxx, x); maxy = Math.max(maxy, y);
+    }
+    return { left: minx, top: miny, width: maxx - minx, height: maxy - miny };
   }
-  _workScreenWidth() {   // Breite des Werks auf dem Bildschirm in Pixeln (für den Lupenmaßstab)
-    const m = this.focus, c = m.userData.center, n = m.userData.normal, pw = m.userData.work.b / 1000;
-    const right = new THREE.Vector3(n.z, 0, -n.x).multiplyScalar(pw / 2);
-    const a = c.clone().add(right).project(this.cam), b = c.clone().sub(right).project(this.cam);
-    return Math.max(40, Math.abs(a.x - b.x) * this.dom.getBoundingClientRect().width / 2);
+  // Großansicht öffnen: Bild fliegt von der Wand in die 2D-Ansicht, Raum friert ein.
+  _enterZoom(mesh) {
+    const wk = mesh.userData.work; this.focus = mesh; this.mode = 'zoom'; this.roomFrozen = true;
+    this.ui.openZoom(wk, this._workScreenRect(mesh), () => this._exitZoom());
+    if (history.replaceState) history.replaceState(null, '', '?werk=' + wk.nr);
+  }
+  // Nach dem Zurückfliegen des Bildes: Raum auftauen, Kamera zurück in den Raum.
+  _exitZoom() {
+    this.roomFrozen = false;
+    if (!this.focus) { this.mode = 'free'; return; }
+    const n = this.focus.userData.normal;
+    const bck = this.cam.position.clone().addScaledVector(n, 1.4); bck.y = this.eyeY();
+    this.anim = { from: this.cam.position.clone(), to: bck, look: this.focus.userData.center.clone(), t: 0, dur: 0.55,
+      onDone: () => { const e = new THREE.Euler().setFromQuaternion(this.cam.quaternion, 'YXZ'); this.state.yaw = e.y; this.state.pitch = Math.max(-CFG.maxPitch, Math.min(CFG.maxPitch, e.x)); this.state.x = this.cam.position.x; this.state.z = this.cam.position.z; this.focus = null; this.mode = 'free'; } };
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+    this.mode = 'move';
   }
   _showRing(x, z, level) { this.ring.position.set(x, (level === 1 ? EMP.y : 0) + 0.03, z); this.ring.visible = true; }
   _hideRing() { if (this.ring) this.ring.visible = false; }
@@ -139,23 +148,20 @@ export class Controls {
     const to = high ? this.cam.position.clone() : c.clone().addScaledVector(n, dist);
     if (!high) to.y = Math.min(Math.max(c.y, 1.3), EMP.eye + 0.5);
     this.focus = mesh; this.walk = null;
-    this.anim = { from: this.cam.position.clone(), to, look: c.clone(), t: 0, dur: high ? 0.4 : 0.75, onDone: () => { this.mode = 'atWork'; this.ui.openPanel(wk); } };
+    this.anim = { from: this.cam.position.clone(), to, look: c.clone(), t: 0, dur: high ? 0.4 : 0.75, onDone: () => this._enterZoom(mesh) };
     this.mode = 'move';
-    if (history.replaceState) history.replaceState(null, '', '?werk=' + wk.nr);
   }
-  backToRoom() {
-    if (!this.focus) return; const n = this.focus.userData.normal;
-    const back = this.cam.position.clone().addScaledVector(n, 1.4); back.y = this.eyeY();
-    this.anim = { from: this.cam.position.clone(), to: back, look: this.focus.userData.center.clone(), t: 0, dur: 0.55, onDone: () => { const e = new THREE.Euler().setFromQuaternion(this.cam.quaternion, 'YXZ'); this.state.yaw = e.y; this.state.pitch = Math.max(-CFG.maxPitch, Math.min(CFG.maxPitch, e.x)); this.state.x = this.cam.position.x; this.state.z = this.cam.position.z; this.focus = null; this.mode = 'free'; } };
-    this.ui.closePanel(); if (history.replaceState) history.replaceState(null, '', location.pathname); this.mode = 'move';
-  }
+  // „Zurück in den Raum" (Knopf/Esc/Klick auf den dunklen Raum): Bild zurückfliegen lassen,
+  // danach fliegt die Kamera zurück (ui.closeZoom ruft am Ende _exitZoom).
+  backToRoom() { if (this.mode === 'zoom') this.ui.closeZoom(); }
   jumpToWork(nr) {
     const mesh = this.g.worksMeshes.find(m => m.userData.work.nr === nr); if (!mesh) return false;
     this.level = mesh.userData.work.level === 'empore' ? 1 : 0;
     const c = mesh.userData.center, n = mesh.userData.normal, wk = mesh.userData.work, pw = wk.b / 1000, ph = wk.h / 1000;
     const dist = Math.min(3.6, Math.max(0.9, Math.max(pw, ph) * 1.5 + 0.5));
     const to = c.clone().addScaledVector(n, dist); to.y = Math.min(Math.max(c.y, 1.3), EMP.eye + 0.5);
-    this.cam.position.copy(to); this.cam.lookAt(c); this.focus = mesh; this.mode = 'atWork'; this.ui.openPanel(wk); return true;
+    this.cam.position.copy(to); this.cam.lookAt(c); this.cam.updateMatrixWorld();
+    this._enterZoom(mesh); return true;        // ?werk öffnet direkt die Großansicht
   }
 
   apply() { this.cam.position.set(this.state.x, this.eyeY(), this.state.z); this.cam.rotation.set(this.state.pitch, this.state.yaw, 0, 'YXZ'); }
@@ -165,7 +171,6 @@ export class Controls {
       this.state.x = prev.x; this.state.z = prev.z; if (r.x !== prev.x || r.z !== prev.z) this.tryMove(r.x, r.z);
       if (this.walk) { const dx = this.walk.x - this.state.x, dz = this.walk.z - this.state.z, d = Math.hypot(dx, dz); if (d < 0.06) this.walk = null; else { const sp = Math.min(CFG.moveSpeed * dt, d); this.tryMove(this.state.x + dx / d * sp, this.state.z + dz / d * sp); } }
       this.apply(); this.ui.setRoom(this.stationOf(this.state.x, this.state.z, this.level));
-    } else if (this.mode === 'atWork') { this.cam.lookAt(this.focus.userData.center); }
-    else if (this.anim) { const a = this.anim; a.t += dt / a.dur; const k = a.t >= 1 ? 1 : 1 - Math.pow(1 - a.t, 3); this.cam.position.lerpVectors(a.from, a.to, k); if (a.look) this.cam.lookAt(a.look); else if (a.toYaw != null) this.cam.rotation.set(0, a.toYaw, 0, 'YXZ'); if (a.t >= 1) { const done = a.onDone; this.anim = null; if (done) done(); } }
+    } else if (this.anim) { const a = this.anim; a.t += dt / a.dur; const k = a.t >= 1 ? 1 : 1 - Math.pow(1 - a.t, 3); this.cam.position.lerpVectors(a.from, a.to, k); if (a.look) this.cam.lookAt(a.look); else if (a.toYaw != null) this.cam.rotation.set(0, a.toYaw, 0, 'YXZ'); if (a.t >= 1) { const done = a.onDone; this.anim = null; if (done) done(); } }
   }
 }

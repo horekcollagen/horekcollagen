@@ -195,9 +195,16 @@ export function buildGallery(renderer, quality, works = []) {
   }
   box(0.07, dH - 0.06, 0.08, doorStile, 10, dH / 2, VEST.zN - 0.11);                                // Mittelstoß
 
-  // Eingangstext
-  const entrance = makeTextPlane('HOREK – Collagen auf Holz. Berlin.', { size: 0.1, w: 2.6, color: '#2a241c', weight: 600 });
-  entrance.position.set(10, 3.3, VEST.zN - 0.12); root.add(entrance);
+  // Eingangstext – anklickbar (öffnet die Künstlergeschichte); darunter „Über HOREK".
+  // Zur Nave (−z) ausgerichtet und vor den Türrahmen gesetzt, damit Text und Link vom
+  // Startpunkt aus (Blick zurück zur Tür) sichtbar und anklickbar sind.
+  const aboutTargets = [];
+  const AZ = VEST.zN - 0.3;                    // vor dem Türrahmen (zur Nave hin)
+  const faceVisitor = (mesh) => { mesh.rotation.y = Math.PI; return mesh; };   // Vorderseite zur Nave (−z)
+  const entrance = faceVisitor(makeTextPlane('HOREK – Collagen auf Holz. Berlin.', { size: 0.1, w: 2.6, color: '#2a241c', weight: 600 }));
+  entrance.position.set(10, 3.4, AZ); entrance.userData = { about: true }; root.add(entrance); aboutTargets.push(entrance);
+  const ueber = faceVisitor(makeTextPlane('Über HOREK', { size: 0.1, w: 1.1, color: '#6a5f50', weight: 600 }));
+  ueber.position.set(10, 2.72, AZ); ueber.userData = { about: true }; root.add(ueber); aboutTargets.push(ueber);
 
   // ---------------- Bildwand ----------------
   const bwMat = new THREE.MeshStandardMaterial({ color: 0xece6da, roughness: 0.95 });
@@ -336,7 +343,7 @@ export function buildGallery(renderer, quality, works = []) {
     }
   }
 
-  return { scene, envTex, pmrem, worksMeshes, raycastTargets: worksMeshes, loadMgr: new THREE.LoadingManager(), floors, upperFloors, emporeTargets, stairTarget, doorTriggers: [], lazyLoad };
+  return { scene, envTex, pmrem, worksMeshes, raycastTargets: worksMeshes, loadMgr: new THREE.LoadingManager(), floors, upperFloors, emporeTargets, aboutTargets, stairTarget, doorTriggers: [], lazyLoad };
 }
 
 // ---- Seitenwand (x const) mit je 4 Fensterpaaren (unten+oben) + Tageslicht ----

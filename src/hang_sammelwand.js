@@ -9,6 +9,7 @@
 //  Abwicklung: u = Bogenlänge auf rHang (0..U), v = Höhe. (u,v)->Welt über θ.
 // ============================================================================
 import { APSE, APSE_HANG } from './layout.js';
+import WERKTEXTE from './werktexte.js';
 
 function toWorld(u, v, rHang, thetaMin) {
   const theta = thetaMin + u / rHang;
@@ -17,7 +18,7 @@ function toWorld(u, v, rHang, thetaMin) {
 }
 function mk(w, place) {
   return { nr: w.nr, slug: String(w.nr), title: w.titel, year: (w.jahr ?? null), price: (w.preis_eur ?? null),
-    h: w.hoehe_cm * 10, b: w.breite_cm * 10, approx: !!w.masse_ca, text: '', zone: 8, level: 'unten',
+    h: w.hoehe_cm * 10, b: w.breite_cm * 10, approx: !!w.masse_ca, text: WERKTEXTE[w.nr] || '', zone: 8, level: 'unten',
     x: place.x, y: place.y, z: place.z, rotY: place.rotY, normal: place.normal, curved: true };
 }
 

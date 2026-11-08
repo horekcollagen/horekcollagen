@@ -49,11 +49,12 @@
   #foot span{opacity:.5}
 
   #panel{position:fixed;z-index:25;right:0;top:0;height:100%;width:min(360px,86vw);background:rgba(18,16,14,.94);
-    border-left:1px solid var(--line);padding:40px 26px;display:flex;flex-direction:column;gap:14px;
+    border-left:1px solid var(--line);padding:40px 26px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;
     transform:translateX(102%);transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   #panel.open{transform:translateX(0)}
   /* Solange die Infotafel offen ist: Raumleiste und Bedienzeile ausblenden (kein Überlappen) */
   body.panel-open #rooms, body.panel-open #hint{display:none!important}
+  body.about-open #rooms, body.about-open #hint{display:none!important}
   #panel .ptitle{font-size:22px;font-weight:700;line-height:1.25;margin:0}
   #panel .pmeta{color:var(--muted);font-size:15px}
   #panel .pdim{font-size:16px;color:#e7e1d6;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0}
@@ -65,8 +66,8 @@
   #panel .ask2:hover{background:#221f1a}
   #panel .back{background:transparent;color:#9a9284;border-color:transparent;font-weight:500;padding:8px}
   #panel .back:hover{color:#efe9dd}
-  #panel .ptext{font-size:14px;line-height:1.55;color:#c9c2b5;margin:2px 0 0}
   #panel .pprice{font-size:21px;font-weight:700;color:#f3efe7;margin-top:4px}
+  #panel .ptext{font-size:14px;line-height:1.55;color:#c9c2b5;margin:4px 0 0;border-top:1px solid var(--line);padding-top:14px}
   /* Großansicht: abgedunkelter Raum + Bild, das von der Wand in die 2D-Ansicht fliegt */
   #zoomback{position:fixed;inset:0;z-index:23;background:#080706;opacity:0;transition:opacity .4s;pointer-events:none}
   body.zoom-open #zoomback{opacity:.93;pointer-events:auto}
@@ -74,11 +75,35 @@
     box-shadow:0 14px 60px rgba(0,0,0,.6);
     transition:left .4s cubic-bezier(.2,.7,.2,1),top .4s cubic-bezier(.2,.7,.2,1),width .4s cubic-bezier(.2,.7,.2,1),height .4s cubic-bezier(.2,.7,.2,1),opacity .3s}
   body.zoom-open #zoomimg{display:block}
+  /* Künstlergeschichte „Über HOREK" – Tafel wie die Infotafel, dunkler Raum dahinter */
+  #aboutback{position:fixed;inset:0;z-index:47;background:#080706;opacity:0;transition:opacity .4s;pointer-events:none}
+  body.about-open #aboutback{opacity:.9;pointer-events:auto}
+  #about{position:fixed;z-index:48;right:0;top:0;height:100%;width:min(420px,90vw);background:rgba(18,16,14,.96);
+    border-left:1px solid var(--line);padding:40px 28px;display:flex;flex-direction:column;gap:16px;
+    transform:translateX(102%);transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  body.about-open #about{transform:translateX(0)}
+  #about .atitle{font-size:24px;font-weight:700;line-height:1.2;margin:0}
+  #about .abody{overflow-y:auto;display:flex;flex-direction:column;gap:13px;font-size:15px;line-height:1.62;
+    color:#d8d1c4;border-top:1px solid var(--line);padding-top:16px}
+  #about .abody p{margin:0}
+  #about .abtns{margin-top:4px}
+  #about .back{display:block;width:100%;text-align:center;background:transparent;color:#cfc8bb;border:1px solid var(--line);
+    border-radius:2px;padding:12px 16px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+  #about .back:hover{background:#221f1a;color:#efe9dd}
+  .coverlink{margin-top:16px;background:none;border:0;color:#b4ac9d;font-size:14px;text-decoration:underline;
+    text-underline-offset:3px;cursor:pointer;font-family:inherit}
+  .coverlink:hover{color:#efe9dd}
+  @media (max-width:759px){
+    #about{top:auto;bottom:0;height:auto;max-height:86vh;width:100%;border-left:0;border-top:1px solid var(--line);
+      padding:22px 20px calc(18px + env(safe-area-inset-bottom));transform:translateY(102%)}
+    body.about-open #about{transform:translateY(0)}
+  }
   /* Handy: Bild oben über die volle Breite, Infotafel als Blatt darunter */
   @media (max-width:759px){
-    body.zoom-open #panel{top:auto;bottom:0;height:auto;max-height:48vh;width:100%;border-left:0;
+    body.zoom-open #panel{top:auto;bottom:0;height:auto;max-height:56vh;width:100%;border-left:0;
       border-top:1px solid var(--line);padding:18px 20px calc(18px + env(safe-area-inset-bottom));transform:translateY(102%)}
     body.zoom-open #panel.open{transform:translateY(0)}
+    body.zoom-open #panel .ptext{max-height:20vh;overflow-y:auto}
   }
   @media (max-width:560px){
     #panel{width:100%;border-left:0;padding:28px 20px calc(20px + env(safe-area-inset-bottom))}
@@ -93,12 +118,25 @@
   <h2 class="ptitle"></h2>
   <div class="pmeta"><span class="pyear"></span>Collage auf Holz, Unikat</div>
   <div class="pdim"></div>
-  <p class="ptext" hidden></p>
   <div class="pprice"></div>
+  <p class="ptext" hidden></p>
   <div class="pbtns">
     <a class="btn ask" id="askOrig" href="#">Original anfragen</a>
     <a class="btn ask2" id="askPrint" href="#">Druck anfragen</a>
     <button class="btn back" id="backBtn" type="button">Zurück in den Raum</button>
+  </div>
+</aside>
+
+<div id="aboutback"></div>
+<aside id="about" aria-hidden="true">
+  <h2 class="atitle">Über HOREK</h2>
+  <div class="abody">
+    <p>HOREK schneidet seit 2019 Zeitschriften auseinander und klebt sie auf Holz. Analog, ohne Computer, jedes Bild ein Unikat. Gelernt hat er Instandhaltungsmechaniker, gearbeitet als Tischler und an CNC-Maschinen, gespielt in Bands.</p>
+    <p>Viele seiner über 350 Collagen sind in einem Proberaum entstanden, in dem er auch wohnte: Bett zum Hochklappen, links und rechts die Verstärker. Im Haus lebten Musiker und Leute, die sonst auf der Straße gelandet wären. Man beklaute sich, manche knallten sich zu, ständig stand jemand in der Tür. HOREK machte Bilder, hörte zu, teilte sein Frühstück. „Das ist das wahre Leben, und das drückt sich in den Bildern aus."</p>
+    <p>Das Material bringt das Leben: Eulenspiegel, Geo, National Geographic, Comics und Reste, die andere vorbeibringen. Bilder und Überschriften sammelt er auf Haufen, später im Funkhaus an der Spree auf einem endlos langen Flur. Einen festen Plan gibt es selten. „Man muss mit dem arbeiten, was da ist."</p>
+  </div>
+  <div class="abtns">
+    <button class="back" id="aboutBack" type="button">Zurück in den Raum</button>
   </div>
 </aside>
 
@@ -129,6 +167,7 @@
   <button id="enter" disabled>Ausstellung betreten</button>
   <div id="bar"><i></i></div>
   <div id="barLbl">Räume werden geladen …</div>
+  <button id="aboutLink" class="coverlink" type="button">Über HOREK</button>
 </div>
 
 <script type="module" src="/src/main.js"></script>

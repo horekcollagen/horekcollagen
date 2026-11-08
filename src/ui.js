@@ -91,6 +91,25 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
     zoom = Math.min(5, Math.max(2, zoom * (e.deltaY < 0 ? 1.12 : 0.89))); showLensDom(lastL.clientX, lastL.clientY, lastL.touch); }, { passive: false });
   addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('zoom-open')) closeZoom(); });
   back.addEventListener('click', () => closeZoom());
+
+  // ---- Künstlergeschichte „Über HOREK" ----
+  const aboutEl = $('#about'), aboutBackdrop = $('#aboutback'), aboutBackBtn = $('#aboutBack'), aboutLink = $('#aboutLink');
+  let aboutCloseCb = null;
+  function openAbout(onClose) {
+    aboutCloseCb = onClose || null;
+    document.body.classList.add('about-open');
+    aboutEl.setAttribute('aria-hidden', 'false');
+  }
+  function closeAbout() {
+    if (!document.body.classList.contains('about-open')) return;
+    document.body.classList.remove('about-open');
+    aboutEl.setAttribute('aria-hidden', 'true');
+    const cb = aboutCloseCb; aboutCloseCb = null; if (cb) cb();
+  }
+  aboutBackBtn.addEventListener('click', closeAbout);
+  aboutBackdrop.addEventListener('click', closeAbout);        // Klick daneben schließt
+  if (aboutLink) aboutLink.addEventListener('click', () => openAbout());   // Startbild-Link
+  addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('about-open')) closeAbout(); });
   addEventListener('resize', () => { if (curWk && !closing) setRect(zimg, targetRect(curWk)); });
 
   function fillPanel(w) {
@@ -134,6 +153,8 @@ export function createUI({ onEnter, onBack, onStation, onNext, count }) {
     fail(msg) { enter.disabled = false; barLbl.textContent = msg || 'Trotzdem betreten'; },
     enterNow() { if (!entered) enter.click(); },
     openZoom, closeZoom,
+    openAbout, closeAbout,
+    aboutOpen() { return document.body.classList.contains('about-open'); },
     closePanel() { hardClosePanel(); },
     zoomOpen() { return !!curWk; },
     setRoom(n) {

@@ -3,7 +3,7 @@ dist/
 *.log
 
 # interne Deliverables (nicht veröffentlichen)
-KODEE_PROMPT_Kirche.md
+KODEE_PROMPT_*.md
 startbild/
 tools/*.local.json
 *.local.json
@@ -15,3 +15,6 @@ tools/*.local.json
 
 # Datenschutz-Suchskript – bleibt lokal (nennt die Suchmuster im Klartext)
 tools/privacy-check.sh
+
+# Lokale Editor-/Vorschau-Konfiguration (nicht im Repo)
+.claude/

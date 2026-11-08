@@ -74,9 +74,11 @@ const ui = createUI({
 const controls = new Controls(camera, renderer.domElement, gallery, ui);
 
 // ---- Laden (Texturen laden nach Nähe/Zone) + Werk-Direktlink (?werk=NR) ----
-const werkParam = parseInt(new URLSearchParams(location.search).get('werk') || '', 10);
+const params = new URLSearchParams(location.search);
+const werkParam = parseInt(params.get('werk') || '', 10);
 ui.ready();                                   // Button frei; Texturen streamen nach Nähe
 if (werkParam) { ui.enterNow(); started = true; gallery.lazyLoad(camera, true); controls.jumpToWork(werkParam); }
+else if (params.has('ueber')) { ui.enterNow(); started = true; gallery.lazyLoad(camera, true); controls.openAbout(); }
 
 // ---- Loop ----
 const clock = new THREE.Clock();

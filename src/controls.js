@@ -62,13 +62,16 @@ export class Controls {
     const works = this.ray.intersectObjects(this.g.worksMeshes, false);
     const up = this.ray.intersectObjects([this.g.stairTarget, ...this.emporeTargets].filter(Boolean), false);
     const ground = this.ray.intersectObjects(this.groundFloors, false);
+    const about = this.ray.intersectObjects(this.g.aboutTargets || [], false);
     const cands = [];
+    if (about.length) cands.push({ d: about[0].distance, kind: 'about' });
     if (works.length) cands.push({ d: works[0].distance, kind: 'work', obj: works[0].object });
     if (up.length && this.level !== 1) cands.push({ d: up[0].distance, kind: 'up', p: up[0].point });  // 'hoch' nur von unten
     if (ground.length) cands.push({ d: ground[0].distance, kind: 'ground', p: ground[0].point });
     if (!cands.length) return null;
     cands.sort((a, b) => a.d - b.d);
     const t = cands[0];
+    if (t.kind === 'about') return { kind: 'about' };
     if (t.kind === 'work') { const w = t.obj.userData.work; const lvl = w.level === 'empore' ? 1 : 0; const s = this._workLanding(t.obj); return { kind: 'work', obj: t.obj, level: lvl, x: s.x, z: s.z }; }
     if (t.kind === 'up') { const s = this.clampToRegion(UPPER, t.p.x, t.p.z); return { kind: 'up', level: 1, x: s.x, z: s.z }; }
     if (this.level === 1) { const s = this.clampToRegion(GROUND, t.p.x, t.p.z); return { kind: 'down', level: 0, x: s.x, z: s.z }; }
@@ -110,13 +113,25 @@ export class Controls {
   }
   _showRing(x, z, level) { this.ring.position.set(x, (level === 1 ? EMP.y : 0) + 0.03, z); this.ring.visible = true; }
   _hideRing() { if (this.ring) this.ring.visible = false; }
-  _hover(e) { this._setNdc(e); const L = this._landingFor(this.ndc); if (L && L.kind !== 'walk') this._showRing(L.x, L.z, L.level); else this._hideRing(); }
+  _hover(e) {
+    this._setNdc(e); const L = this._landingFor(this.ndc);
+    if (L && L.kind === 'about') { this._hideRing(); this.dom.style.cursor = 'pointer'; return; }
+    this.dom.style.cursor = '';
+    if (L && L.kind !== 'walk') this._showRing(L.x, L.z, L.level); else this._hideRing();
+  }
   _click() {
     const L = this._landingFor(this.ndc); this._hideRing();
     if (!L) return;
-    if (L.kind === 'work') this._focusWork(L.obj);
+    if (L.kind === 'about') this.openAbout();
+    else if (L.kind === 'work') this._focusWork(L.obj);
     else if (L.kind === 'up' || L.kind === 'down') this._changeLevel(L.level, { x: L.x, z: L.z });
     else this.walk = { x: L.x, z: L.z };
+  }
+  // Künstlergeschichte: Raum einfrieren, Tafel öffnen; Schließen taut wieder auf.
+  openAbout() {
+    if (this.ui.aboutOpen && this.ui.aboutOpen()) return;
+    this.roomFrozen = true; this.mode = 'about'; this.dom.style.cursor = '';
+    this.ui.openAbout(() => { this.roomFrozen = false; this.mode = 'free'; });
   }
   _changeLevel(level, p) {
     const t = this.clampToRegion(level === 1 ? UPPER : GROUND, p.x, p.z);

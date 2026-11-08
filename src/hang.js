@@ -5,6 +5,7 @@
 //  Koordinaten: x quer, z längs (Apsis 0 … Tür 36), y Höhe.
 // ============================================================================
 import { NAVE, APSE, CHAPEL, VEST, EMP, BILDWAND, PODIUM, WIN_ZC } from './layout.js';
+import WERKTEXTE from './werktexte.js';
 
 const OFF = 0.18;  // > halbe Wandstärke (0,125), aber Werkrückseite <=5 cm vor der Wand
 const N = { pX: [1, 0, 0], nX: [-1, 0, 0], pZ: [0, 0, 1], nZ: [0, 0, -1] };
@@ -12,7 +13,7 @@ const rot = { pX: Math.PI / 2, nX: -Math.PI / 2, pZ: 0, nZ: Math.PI };
 
 function mk(w, x, y, z, dir) {
   return { nr: w.nr, slug: String(w.nr), title: w.titel, year: w.jahr, price: w.preis_eur,
-    h: w.hoehe_cm * 10, b: w.breite_cm * 10, approx: !!w.masse_ca, text: '', zone: w.zone,
+    h: w.hoehe_cm * 10, b: w.breite_cm * 10, approx: !!w.masse_ca, text: WERKTEXTE[w.nr] || '', zone: w.zone,
     level: (w.zone === 6 || w.zone === 7) ? 'empore' : 'unten',
     x, y, z, rotY: rot[dir], normal: N[dir] };
 }
